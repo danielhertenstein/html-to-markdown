@@ -1,5 +1,5 @@
 use reqwest::{Client, Result};
-use scraper::{ElementRef, Html, Selector};
+use scraper::{ElementRef, Html, Node::{Element, Text}, Selector};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,37 +50,33 @@ async fn main() -> Result<()> {
         .collect();
     println!("Authors: {:?}", authors);
     
-    let paragraphs: Vec<String> = paragraphs.map(|paragraph| {
-        dbg!(paragraph.html());
-        let markdown = match paragraph.has_children() {
-            true => convert_child(paragraph),
-            false => paragraph.inner_html(),
-        };
-        dbg!(markdown)
-    })
-        .collect();
-    println!("{:?}", paragraphs);
+    for paragraph in paragraphs {
+        println!("{:#?}", paragraph.inner_html());
+        let markdown = translate_paragraph(paragraph);
+        println!("{}", markdown);
+    }
 
     Ok(())
 }
 
-fn convert_child(element_ref: ElementRef) -> String {
-    let inner_element = extract_first_child(element_ref);
-    dbg!(inner_element.html());
-    let inner_markdown = match inner_element.value().name() {
-        "a" => translate_link(inner_element),
-        "strong" => inner_element.inner_html(),
-        _ => format!("Unsupported element type {}", inner_element.value().name()),
+fn translate_paragraph(element_ref: ElementRef) -> String {
+    let first_child_node = element_ref.first_child().unwrap();
+    let inner_markdown = match first_child_node.value() {
+        Text(_) => element_ref.inner_html(),
+        &Element(_) => translate_element(ElementRef::wrap(first_child_node).unwrap()),
+        _ => panic!("Unsupported node type {:#?}", first_child_node.value()),
     };
-    format!("\n\n{}", inner_markdown)
+    format!("\n{}", inner_markdown)
 }
 
-fn extract_first_child(element_ref: ElementRef) -> ElementRef {
-    element_ref
-        .first_child()
-        .and_then(ElementRef::wrap)
-        .unwrap()
-} 
+fn translate_element(element: ElementRef) -> String {
+    match element.value().name() {
+        "a" => translate_link(element),
+        "strong" => element.inner_html(),
+        "br" => "".to_string(),
+        _ => panic!("Unsupported element type {}", element.value().name()),
+    }
+}
 
 fn translate_link(element_ref: ElementRef) -> String {
     format!("[{}]({})", element_ref.inner_html(), element_ref.value().attr("href").unwrap())
@@ -92,7 +88,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_link_transform() {
+    fn test_link_translate() {
         let link_str = r#"<a href="https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/" target="_blank">&nbsp;A People of Color's History of DSA, Part 1</a>"#;
         let html = Html::parse_fragment(link_str);
         let selector = Selector::parse("a").unwrap();
@@ -107,7 +103,17 @@ mod tests {
         let html = Html::parse_fragment(paragraph_str);
         let selector = Selector::parse("p").unwrap();
         let paragraph = html.select(&selector).next().unwrap();
-        let markdown = convert_child(paragraph);
-        assert_eq!(markdown, "\n\n[&nbsp;A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)");
+        let markdown = translate_paragraph(paragraph);
+        assert_eq!(markdown, "\n[&nbsp;A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)");
+    }
+    
+    #[test]
+    fn test_bolding_strongs() {
+        assert_eq!(true, false);
+    }
+
+    #[test]
+    fn test_img_translate() {
+        assert_eq!(true, false);
     }
 }
