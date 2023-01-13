@@ -1,5 +1,7 @@
 use reqwest::{Client, Result};
 use scraper::{ElementRef, Html, Node::{Element, Text}, Selector};
+use std::{fs::File, io::Write};
+use std::path::PathBuf;
 use url::Url;
 
 #[tokio::main]
@@ -21,12 +23,27 @@ async fn main() -> Result<()> {
     assert_eq!(content.len(), 1);
     let content = content[0];
 
+    let path = create_file_path(url);
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+    let mut file = match File::create(&path) {
+        Err(why) => panic!("Couldn't create {}: {}", path.display(), why),
+        Ok(file) => file,
+    };
+
+    // Start of liquid header
+    writeln!(file, "---\nlayout: page").unwrap();
+
     let title_selector = Selector::parse("h1").unwrap();
     let title: Vec<ElementRef> = content.select(&title_selector).collect();
     assert_eq!(title.len(), 1);
     let title = title[0];
-    println!("Title: {}", replace_html_entities(&title.inner_html()).trim());
+    writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
 
+    // End of liquid header
+    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
+
+    // TODO: Where does the date go?
     let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
     let date: Vec<ElementRef> = content.select(&date_selector).collect();
     assert_eq!(date.len(), 1);
@@ -41,6 +58,7 @@ async fn main() -> Result<()> {
     let paragraph_selector = Selector::parse("p").unwrap();
     let mut paragraphs = body.select(&paragraph_selector);
 
+    // TODO: Where do the authors go?
     let byline = paragraphs.next().unwrap().text().next().unwrap();
     let authors: Vec<String> = byline.strip_prefix("By")
         .unwrap_or(byline)
@@ -57,7 +75,7 @@ async fn main() -> Result<()> {
     for paragraph in paragraphs {
         println!("{:#?}", paragraph.inner_html());
         if let Some(markdown) = translate_paragraph(paragraph) {
-            println!("{}", markdown);
+            writeln!(file, "{}", markdown).unwrap();
         }
     }
 
@@ -103,9 +121,24 @@ fn replace_html_entities(dirty_str: &str) -> String {
     dirty_str.replace("&nbsp;", " ")
 }
 
+fn create_file_path(url_str: &str) -> PathBuf {
+    let url = Url::parse(url_str).unwrap();
+    let url_path = url.path();
+    let no_prefix = url_path.strip_prefix('/').unwrap_or(url_path);
+    let no_suffix = no_prefix.strip_suffix('/').unwrap_or(no_prefix);
+    let path_str = format!("{}.md", no_suffix);
+    PathBuf::from(&path_str)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_file_path_creation() {
+        let path = create_file_path("https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/");
+        assert_eq!(path.to_str(), Some("blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward.md"))
+    }
 
     #[test]
     fn test_link_translate() {
@@ -138,7 +171,7 @@ mod tests {
     }
     
     #[test]
-    fn skip_brs() {
+    fn test_skip_brs() {
         let raw_html_str = "<br>";
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("br").unwrap();
@@ -148,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn trim_domain_from_url() {
+    fn test_trim_domain_from_url() {
         let url_str = "https://lh4.googleusercontent.com/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o";
         let url = Url::parse(url_str).unwrap();
         assert_eq!(url.path(), "/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o")
@@ -165,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_nbsp() {
+    fn test_remove_nbsp() {
         let raw_str = r#"&nbsp;Hello&nbsp;World&nbsp;"#;
         let replaced_str = replace_html_entities(raw_str);
         let fixed_str = replaced_str.trim();
