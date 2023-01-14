@@ -83,10 +83,10 @@ async fn main() -> Result<()> {
 }
 
 fn translate_paragraph(element_ref: ElementRef) -> Option<String> {
+    // TODO: Probably need to iterate over all children for the general case
     let first_child_node = element_ref.first_child().unwrap();
     match first_child_node.value() {
-        // TODO: Translating text will need to be its own function once I need to deal with <a> elements in the text
-        Text(_) => Some(replace_html_entities(&element_ref.inner_html()).trim().to_string()),
+        Text(_) => Some(translate_text(element_ref)),
         &Element(_) => translate_element(ElementRef::wrap(first_child_node).unwrap()),
         _ => panic!("Unsupported node type {:#?}", first_child_node.value()),
     }.map(|markdown| format!("\n{}", markdown))
@@ -100,6 +100,29 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "img" => Some(translate_img(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
+}
+
+fn translate_text(element: ElementRef) -> String {
+    element
+        .children()
+        .filter_map(|node| {
+            match node.value() {
+                Text(text) => Some(replace_html_entities(text).trim().to_string()),
+                Element(_) => translate_element(ElementRef::wrap(node).unwrap()),
+                _ => panic!("Unsupported node type {:#?}", node.value()),
+            }
+        })
+        .fold(String::new(), |mut a, b| {
+            if a.ends_with(' ') && b.starts_with(',') {
+                a.pop();
+            }
+            a.reserve(b.len() + 1);
+            a.push_str(&b);
+            a.push(' ');
+            a
+        })
+        .trim_end()
+        .to_string()
 }
 
 fn translate_link(element_ref: ElementRef) -> String {
@@ -203,5 +226,15 @@ mod tests {
         let replaced_str = replace_html_entities(raw_str);
         let fixed_str = replaced_str.trim();
         assert_eq!(fixed_str, "Hello World");
+    }
+
+    #[test]
+    fn test_translate_link_inside_text() {
+        let raw_html_str = r#"<p>There is some text, <a href="https://fake_site.com/fake_page.html">then a link</a>, and then more text."#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("p").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_paragraph(element_ref);
+        assert_eq!(markdown, Some("\nThere is some text, [then a link](https://fake_site.com/fake_page.html), and then more text.".to_string()));
     }
 }
