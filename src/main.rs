@@ -170,6 +170,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "span" => translate_span(element),
         "p" => translate_paragraph(element),
         "ul" => translate_ul(element),
+        "blockquote" => Some(translate_blockquote(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -217,6 +218,10 @@ fn translate_em(element_ref: ElementRef) -> String {
 
 fn translate_u(element_ref: ElementRef) -> String {
     format!("_{}_", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_blockquote(element_ref: ElementRef) -> String {
+    format!("< {}", translate_paragraph(element_ref).unwrap())
 }
 
 fn translate_sup(element_ref: ElementRef) -> String {
@@ -483,5 +488,15 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_ul(element_ref);
         assert_eq!(markdown, None);
+    }
+
+    #[test]
+    fn test_translate_blockquote() {
+        let raw_html_str = r#"<blockquote>This is a blockquote.</blockquote>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("blockquote").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_blockquote(element_ref);
+        assert_eq!(markdown, "< This is a blockquote.");
     }
 }
