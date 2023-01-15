@@ -5,7 +5,6 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 ## TODO
 
 * Scrape multiple sites
-* Convert `<img>`s inside `<p>`s and `<strong>`s
 * Increase flexibility
   * Could the selector text be given at runtime?
 * Wayyyyyy better error handling

@@ -1,7 +1,7 @@
 use reqwest::{Client, Result};
 use scraper::{ElementRef, Html, Node::{Element, Text}, Selector};
 use std::{fs::File, io::Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use url::Url;
 
 #[tokio::main]
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
     for paragraph in paragraphs {
         println!("{:#?}", paragraph.inner_html());
         if let Some(markdown) = translate_paragraph(paragraph) {
-            writeln!(file, "{}", markdown).unwrap();
+            writeln!(file, "\n{}", markdown).unwrap();
         }
     }
 
@@ -93,7 +93,7 @@ fn translate_paragraph(element_ref: ElementRef) -> Option<String> {
         Text(_) => Some(translate_text(element_ref)),
         &Element(_) => translate_element(ElementRef::wrap(first_child_node).unwrap()),
         _ => panic!("Unsupported node type {:#?}", first_child_node.value()),
-    }.map(|markdown| format!("\n{}", markdown))
+    }
 }
 
 fn translate_element(element: ElementRef) -> Option<String> {
@@ -134,12 +134,16 @@ fn translate_link(element_ref: ElementRef) -> String {
 }
 
 fn translate_strong(element_ref: ElementRef) -> String {
-    format!("**{}**", replace_html_entities(&element_ref.inner_html()).trim())
+    format!("**{}**", translate_paragraph(element_ref).unwrap())
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
     let url = url_from_img(element_ref);
-    let markdown = format!("![](/assets/images{}.png){{: .img-fluid }}", url.path());
+    let mut filepath = Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
+    if filepath.as_path().extension().is_none() {
+        filepath.set_extension("png");
+    }
+    let markdown = format!("![]({}){{: .img-fluid }}", filepath.display());
     markdown
 }
 
@@ -211,7 +215,7 @@ mod tests {
         let selector = Selector::parse("p").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_paragraph(element_ref);
-        assert_eq!(markdown, Some("\n[A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)".to_string()));
+        assert_eq!(markdown, Some("[A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)".to_string()));
     }
     
     #[test]
@@ -222,6 +226,16 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_strong(element_ref);
         assert_eq!(markdown, "**4: DSA Looks Inward**");
+    }
+
+    #[test]
+    fn test_strong_with_img_inside() {
+        let raw_html_str = r#"<strong><img src="https://www.fake_site.com/fake_image.png"></strong>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("strong").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_strong(element_ref);
+        assert_eq!(markdown, "**![](/assets/images/fake_image.png){: .img-fluid }**");
     }
     
     #[test]
@@ -266,7 +280,7 @@ mod tests {
         let selector = Selector::parse("p").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_paragraph(element_ref);
-        assert_eq!(markdown, Some("\nThere is some text, [then a link](https://fake_site.com/fake_page.html), and then more text.".to_string()));
+        assert_eq!(markdown, Some("There is some text, [then a link](https://fake_site.com/fake_page.html), and then more text.".to_string()));
     }
 
     #[tokio::test]
