@@ -178,7 +178,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "h2" => Some(translate_h2(element)),
         "h3" => Some(translate_h3(element)),
         "h4" => Some(translate_h4(element)),
-        "table" => Some("Tables not supported yet. Need to manually translate.".to_string()),
+        "table" => Some(element.html()),
         "div" => pass_through(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
