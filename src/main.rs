@@ -166,6 +166,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "a" => Some(translate_link(element)),
         "strong" => Some(translate_strong(element)),
         "em" => Some(translate_em(element)),
+        "u" => Some(translate_u(element)),
         "br" => None,
         "img" => Some(translate_img(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
@@ -211,6 +212,10 @@ fn translate_strong(element_ref: ElementRef) -> String {
 
 fn translate_em(element_ref: ElementRef) -> String {
     format!("*{}*", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_u(element_ref: ElementRef) -> String {
+    format!("_{}_", translate_paragraph(element_ref).unwrap())
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -319,6 +324,16 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_em(element_ref);
         assert_eq!(markdown, "*4: DSA Looks Inward*");
+    }
+
+    #[test]
+    fn test_underlining_u() {
+        let raw_html_str = r#"<u>4: DSA Looks Inward</u>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("u").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_u(element_ref);
+        assert_eq!(markdown, "_4: DSA Looks Inward_");
     }
 
     #[test]
