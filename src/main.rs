@@ -12,10 +12,10 @@ async fn main() -> Result<()> {
     let pages: Vec<&str> = [
         // "https://www.sacdsa.org/blog/2022/08/24/gaza-killing-fields-open-and-shut-quickly-why-and-how-to-stop-the-carnage/",
         // "https://www.sacdsa.org/blog/2020/10/06/prop22-discontents/",
-        "https://www.sacdsa.org/blog/2020/09/16/not-an-empty-round-a-response-to-objections-by-the-sacramento-dsa-cpn-caucus-on-resolution-9/",
-        "https://www.sacdsa.org/blog/2020/09/10/the-time-is-now/",
-        "https://www.sacdsa.org/blog/2020/07/25/thoughts-on-organizing-to-keep-schools-safe/",
-        "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/",
+        // "https://www.sacdsa.org/blog/2020/09/16/not-an-empty-round-a-response-to-objections-by-the-sacramento-dsa-cpn-caucus-on-resolution-9/",
+        // "https://www.sacdsa.org/blog/2020/09/10/the-time-is-now/",
+        // "https://www.sacdsa.org/blog/2020/07/25/thoughts-on-organizing-to-keep-schools-safe/",
+        // "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/",
         "https://www.sacdsa.org/blog/2020/06/01/george-floyd-solidarity-statement/",
         "https://www.sacdsa.org/blog/2020/05/11/free-support-healthcare-workers-poster/",
         "https://www.sacdsa.org/blog/2020/04/30/chapter-statement-on-covid-crisis/",
@@ -167,6 +167,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "strong" => Some(translate_strong(element)),
         "em" => Some(translate_em(element)),
         "u" => Some(translate_u(element)),
+        "sup" => Some(translate_sup(element)),
         "br" => None,
         "img" => Some(translate_img(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
@@ -216,6 +217,10 @@ fn translate_em(element_ref: ElementRef) -> String {
 
 fn translate_u(element_ref: ElementRef) -> String {
     format!("_{}_", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_sup(element_ref: ElementRef) -> String {
+    format!("<sup>{}</sup>", translate_paragraph(element_ref).unwrap())
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -324,6 +329,16 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_em(element_ref);
         assert_eq!(markdown, "*4: DSA Looks Inward*");
+    }
+
+    #[test]
+    fn test_superscripting_sup() {
+        let raw_html_str = r#"<sup>4</sup>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("sup").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_sup(element_ref);
+        assert_eq!(markdown, "<sup>4</sup>");
     }
 
     #[test]
