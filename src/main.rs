@@ -96,7 +96,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
 
     let title_selector = Selector::parse("h1").unwrap();
     let title: Vec<ElementRef> = content.select(&title_selector).collect();
-    assert_eq!(title.len(), 1);
+    // We just assume that the first <h1> element is the title
     let title = title[0];
     writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
 
@@ -159,6 +159,7 @@ fn translate_paragraph(element_ref: ElementRef) -> Option<String> {
 }
 
 fn translate_element(element: ElementRef) -> Option<String> {
+    println!("{}", &element.html());
     match element.value().name() {
         "a" => Some(translate_link(element)),
         "strong" => Some(translate_strong(element)),
@@ -206,8 +207,11 @@ fn translate_text(element: ElementRef) -> String {
 }
 
 fn translate_link(element_ref: ElementRef) -> String {
-    let href = element_ref.value().attr("href").unwrap();
-    let url = Url::parse(href).unwrap();
+    let mut href = element_ref.value().attr("href").unwrap().to_string();
+    if !href.starts_with("https://") && !href.starts_with("http://") {
+        href.insert_str(0, "https://");
+    }
+    let url = Url::parse(&href).unwrap();
     let markdown_url = match url.domain() {
         Some(domain) if domain == DOMAIN => url.path(),
         _ => url.as_str()
@@ -504,6 +508,16 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_link(element_ref);
         assert_eq!(markdown, "[Link Text](/some_link)");
+    }
+
+    #[test]
+    fn test_translate_link_without_www() {
+        let raw_html_str = r#"<a href="some_site.org/some_link">Link Text</a>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("a").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_link(element_ref);
+        assert_eq!(markdown, "[Link Text](https://some_site.org/some_link)");
     }
 
     #[test]
