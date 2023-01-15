@@ -29,11 +29,11 @@ async fn main() -> Result<()> {
         // "https://www.sacdsa.org/blog/2019/07/26/dont-trust-denney/",
         // "https://www.sacdsa.org/blog/2019/05/15/socialized_sac_ep1/",
         // "https://www.sacdsa.org/blog/2019/05/11/will_california_support_unions/",
-        "https://www.sacdsa.org/blog/2019/03/30/thoughts_on_m4a_canvassing/",
-        "https://www.sacdsa.org/blog/2019/03/18/racial_solidarity_committee_mission_statement/",
-        "https://www.sacdsa.org/blog/2019/03/14/democratic_socialist_for_mayor_2020/",
-        "https://www.sacdsa.org/blog/2019/03/12/op_ed_reorganization_sac_dsa/",
-        "https://www.sacdsa.org/blog/2019/03/04/statement_stephon_clark_no_charges/",
+        // "https://www.sacdsa.org/blog/2019/03/30/thoughts_on_m4a_canvassing/",
+        // "https://www.sacdsa.org/blog/2019/03/18/racial_solidarity_committee_mission_statement/",
+        // "https://www.sacdsa.org/blog/2019/03/14/democratic_socialist_for_mayor_2020/",
+        // "https://www.sacdsa.org/blog/2019/03/12/op_ed_reorganization_sac_dsa/",
+        // "https://www.sacdsa.org/blog/2019/03/04/statement_stephon_clark_no_charges/",
         "https://www.sacdsa.org/blog/2019/01/30/venezuela_solidarity_statement_01_30_19/",
         "https://www.sacdsa.org/blog/2019/01/30/green_new_deal_pge_kickoff/",
         "https://www.sacdsa.org/blog/2019/01/06/international-committee-mission-statement/",
@@ -142,6 +142,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
 
     for paragraph in paragraphs {
+        println!("{:#?}", paragraph.inner_html());
         if let Some(markdown) = translate_paragraph(paragraph) {
             writeln!(file, "\n{}", markdown).unwrap();
         }
@@ -169,7 +170,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "sup" => Some(translate_sup(element)),
         "br" => None,
         "img" => Some(translate_img(element)),
-        "span" => Some(translate_span(element)),
+        "span" => translate_span(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -223,8 +224,8 @@ fn translate_sup(element_ref: ElementRef) -> String {
     format!("<sup>{}</sup>", translate_paragraph(element_ref).unwrap())
 }
 
-fn translate_span(element_ref: ElementRef) -> String {
-    translate_paragraph(element_ref).unwrap()
+fn translate_span(element_ref: ElementRef) -> Option<String> {
+    translate_paragraph(element_ref)
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -362,9 +363,19 @@ mod tests {
         let selector = Selector::parse("span").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_span(element_ref);
-        assert_eq!(markdown, "4: DSA Looks Inward");
+        assert_eq!(markdown, Some("4: DSA Looks Inward".to_string()));
     }
 
+    #[test]
+    fn test_span_with_only_br() {
+        let raw_html_str = r#"<span><br></span>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("span").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_span(element_ref);
+        assert_eq!(markdown, None);
+    }
+    
     #[test]
     fn test_strong_with_img_inside() {
         let raw_html_str = r#"<strong><img src="https://www.fake_site.com/fake_image.png"></strong>"#;
