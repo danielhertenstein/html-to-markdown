@@ -170,6 +170,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "span" => translate_span(element),
         "p" => translate_paragraph(element),
         "ul" => translate_ul(element),
+        "ol" => translate_ol(element),
         "blockquote" => Some(translate_blockquote(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
@@ -238,6 +239,19 @@ fn translate_ul(element_ref: ElementRef) -> Option<String> {
         .filter_map(ElementRef::wrap)
         .filter_map(translate_paragraph)
         .map(|markdown| format!("* {}", markdown))
+        .collect::<Vec<String>>()
+        .join("\n");
+    (!markdown.is_empty())
+        .then_some(markdown)
+}
+
+fn translate_ol(element_ref: ElementRef) -> Option<String> {
+    let markdown = element_ref
+        .children()
+        .filter_map(ElementRef::wrap)
+        .filter_map(translate_paragraph)
+        .enumerate()
+        .map(|(index, markdown)| format!("{}. {}", index+1, markdown))
         .collect::<Vec<String>>()
         .join("\n");
     (!markdown.is_empty())
@@ -498,5 +512,25 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_blockquote(element_ref);
         assert_eq!(markdown, "< This is a blockquote.");
+    }
+
+    #[test]
+    fn test_translate_ol_with_items() {
+        let raw_html_str = r#"<ol><li>One</li><li>Two</li></ol>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("ol").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_ol(element_ref);
+        assert_eq!(markdown, Some("1. One\n2. Two".to_string()));
+    }
+
+    #[test]
+    fn test_translate_ol_empty() {
+        let raw_html_str = r#"<ol></ol>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("ol").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_ol(element_ref);
+        assert_eq!(markdown, None);
     }
 }
