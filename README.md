@@ -8,5 +8,3 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Increase flexibility
   * Could the selector text be given at runtime?
 * Wayyyyyy better error handling
-* Handle links to other pages on the same site
-* Make sure pdf downloads work

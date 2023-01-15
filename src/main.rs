@@ -4,6 +4,8 @@ use std::{fs::File, io::Write};
 use std::path::{Path, PathBuf};
 use url::Url;
 
+const DOMAIN: &str = "www.sacdsa.org";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let url = "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/";
@@ -130,7 +132,13 @@ fn translate_text(element: ElementRef) -> String {
 }
 
 fn translate_link(element_ref: ElementRef) -> String {
-    format!("[{}]({})", replace_html_entities(&element_ref.inner_html()).trim(), element_ref.value().attr("href").unwrap())
+    let href = element_ref.value().attr("href").unwrap();
+    let url = Url::parse(href).unwrap();
+    let markdown_url = match url.domain() {
+        Some(domain) if domain == DOMAIN => url.path(),
+        _ => url.as_str()
+    };
+    format!("[{}]({})", replace_html_entities(&element_ref.inner_html()).trim(), markdown_url)
 }
 
 fn translate_strong(element_ref: ElementRef) -> String {
@@ -199,13 +207,13 @@ mod tests {
     }
 
     #[test]
-    fn test_link_translate() {
-        let raw_html_str = r#"<a href="https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/" target="_blank">&nbsp;A People of Color's History of DSA, Part 1</a>"#;
+    fn test_link_translate_different_domain() {
+        let raw_html_str = r#"<a href="https://www.fake_site.org/some_link">Link Text</a>"#;
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("a").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_link(element_ref);
-        assert_eq!(markdown, "[A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)");
+        assert_eq!(markdown, "[Link Text](https://www.fake_site.org/some_link)");
     }
 
     #[test]
@@ -215,7 +223,7 @@ mod tests {
         let selector = Selector::parse("p").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_paragraph(element_ref);
-        assert_eq!(markdown, Some("[A People of Color's History of DSA, Part 1](https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)".to_string()));
+        assert_eq!(markdown, Some("[A People of Color's History of DSA, Part 1](/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)".to_string()));
     }
     
     #[test]
@@ -294,5 +302,15 @@ mod tests {
         let client = Client::new();
         download_image(url, tmp_dir.path().to_path_buf(), &client).await.unwrap();
         assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png").exists());
+    }
+
+    #[test]
+    fn test_link_matching_domain() {
+        let raw_html_str = r#"<a href="https://www.sacdsa.org/some_link">Link Text</a>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("a").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_link(element_ref);
+        assert_eq!(markdown, "[Link Text](/some_link)");
     }
 }
