@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
         // "https://www.sacdsa.org/blog/2020/09/16/not-an-empty-round-a-response-to-objections-by-the-sacramento-dsa-cpn-caucus-on-resolution-9/",
         // "https://www.sacdsa.org/blog/2020/09/10/the-time-is-now/",
         // "https://www.sacdsa.org/blog/2020/07/25/thoughts-on-organizing-to-keep-schools-safe/",
-        // "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/",
+        "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/",
         // "https://www.sacdsa.org/blog/2020/06/01/george-floyd-solidarity-statement/",
         // "https://www.sacdsa.org/blog/2020/05/11/free-support-healthcare-workers-poster/",
         // "https://www.sacdsa.org/blog/2020/04/30/chapter-statement-on-covid-crisis/",
@@ -34,35 +34,35 @@ async fn main() -> Result<()> {
         // "https://www.sacdsa.org/blog/2019/03/14/democratic_socialist_for_mayor_2020/",
         // "https://www.sacdsa.org/blog/2019/03/12/op_ed_reorganization_sac_dsa/",
         // "https://www.sacdsa.org/blog/2019/03/04/statement_stephon_clark_no_charges/",
-        "https://www.sacdsa.org/blog/2019/01/30/venezuela_solidarity_statement_01_30_19/",
-        "https://www.sacdsa.org/blog/2019/01/30/green_new_deal_pge_kickoff/",
-        "https://www.sacdsa.org/blog/2019/01/06/international-committee-mission-statement/",
-        "https://www.sacdsa.org/blog/2018/10/23/research_nov_2018_voting_guide/",
-        "https://www.sacdsa.org/blog/2018/10/05/sac_dsa_kavanaugh_statement/",
-        "https://www.sacdsa.org/blog/2018/08/15/socialist_support_2018_national_prison_strike/",
-        "https://www.sacdsa.org/blog/2018/07/28/sac_city_council/",
-        "https://www.sacdsa.org/blog/2018/07/23/immigration_and_labor_in_ca/",
-        "https://www.sacdsa.org/blog/2018/06/16/tentsarentenough/",
-        "https://www.sacdsa.org/blog/2018/05/15/sacramento_dsa_endorsements/",
-        "https://www.sacdsa.org/blog/2018/05/07/ucstrike/",
-        "https://www.sacdsa.org/blog/2018/04/04/not-one-more-statement-on-stephon-clark/",
-        "https://www.sacdsa.org/blog/2018/04/03/forrentcontrol/",
-        "https://www.sacdsa.org/blog/2018/03/28/sb827/",
-        "https://www.sacdsa.org/blog/2018/03/20/bera/",
-        "https://www.sacdsa.org/blog/2018/03/08/what_is_going_on_with_labor_unions/",
-        "https://www.sacdsa.org/blog/2018/01/26/turkish_aggression_against_afrin_rojava_solidarity/",
-        "https://www.sacdsa.org/blog/2018/01/25/interview_michael_lighty_the_fight_for_universal_healthcare_in_california/",
-        "https://www.sacdsa.org/blog/2018/01/25/fred_glass_california_labor_in_the_time_of_trump/",
-        "https://www.sacdsa.org/blog/2018/01/12/solidarity_with_the_rohingya/",
-        "https://www.sacdsa.org/blog/2018/01/10/costa_hawkins_and_why_it_matters/",
-        "https://www.sacdsa.org/blog/2018/01/03/rent_control_opponents_heavily_funding_sacramento_politicians/",
-        "https://www.sacdsa.org/blog/2017/12/11/the_approaching_battle_for_rent_control/",
-        "https://www.sacdsa.org/blog/2017/11/25/statement_in_remembrance_of_michael_israel/",
-        "https://www.sacdsa.org/blog/2017/11/20/what-we-can-do/",
-        "https://www.sacdsa.org/blog/2017/11/13/pay-your-dues/",
-        "https://www.sacdsa.org/blog/2017/11/02/rentcontrol/",
-        "https://www.sacdsa.org/blog/2017/10/04/landpark/",
-        "https://www.sacdsa.org/blog/2017/09/22/2017election/"
+        // "https://www.sacdsa.org/blog/2019/01/30/venezuela_solidarity_statement_01_30_19/",
+        // "https://www.sacdsa.org/blog/2019/01/30/green_new_deal_pge_kickoff/",
+        // "https://www.sacdsa.org/blog/2019/01/06/international-committee-mission-statement/",
+        // "https://www.sacdsa.org/blog/2018/10/23/research_nov_2018_voting_guide/",
+        // "https://www.sacdsa.org/blog/2018/10/05/sac_dsa_kavanaugh_statement/",
+        // "https://www.sacdsa.org/blog/2018/08/15/socialist_support_2018_national_prison_strike/",
+        // "https://www.sacdsa.org/blog/2018/07/28/sac_city_council/",
+        // "https://www.sacdsa.org/blog/2018/07/23/immigration_and_labor_in_ca/",
+        // "https://www.sacdsa.org/blog/2018/06/16/tentsarentenough/",
+        // "https://www.sacdsa.org/blog/2018/05/15/sacramento_dsa_endorsements/",
+        // "https://www.sacdsa.org/blog/2018/05/07/ucstrike/",
+        // "https://www.sacdsa.org/blog/2018/04/04/not-one-more-statement-on-stephon-clark/",
+        // "https://www.sacdsa.org/blog/2018/04/03/forrentcontrol/",
+        // "https://www.sacdsa.org/blog/2018/03/28/sb827/",
+        // "https://www.sacdsa.org/blog/2018/03/20/bera/",
+        // "https://www.sacdsa.org/blog/2018/03/08/what_is_going_on_with_labor_unions/",
+        // "https://www.sacdsa.org/blog/2018/01/26/turkish_aggression_against_afrin_rojava_solidarity/",
+        // "https://www.sacdsa.org/blog/2018/01/25/interview_michael_lighty_the_fight_for_universal_healthcare_in_california/",
+        // "https://www.sacdsa.org/blog/2018/01/25/fred_glass_california_labor_in_the_time_of_trump/",
+        // "https://www.sacdsa.org/blog/2018/01/12/solidarity_with_the_rohingya/",
+        // "https://www.sacdsa.org/blog/2018/01/10/costa_hawkins_and_why_it_matters/",
+        // "https://www.sacdsa.org/blog/2018/01/03/rent_control_opponents_heavily_funding_sacramento_politicians/",
+        // "https://www.sacdsa.org/blog/2017/12/11/the_approaching_battle_for_rent_control/",
+        // "https://www.sacdsa.org/blog/2017/11/25/statement_in_remembrance_of_michael_israel/",
+        // "https://www.sacdsa.org/blog/2017/11/20/what-we-can-do/",
+        // "https://www.sacdsa.org/blog/2017/11/13/pay-your-dues/",
+        // "https://www.sacdsa.org/blog/2017/11/02/rentcontrol/",
+        // "https://www.sacdsa.org/blog/2017/10/04/landpark/",
+        // "https://www.sacdsa.org/blog/2017/09/22/2017election/"
     ].to_vec();
     for page in pages {
         translate_site(&client, page).await?;
@@ -100,6 +100,9 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let title = title[0];
     writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
 
+    // End of liquid header
+    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
+
     // TODO: Where does the date go?
     // let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
     // let date: Vec<ElementRef> = content.select(&date_selector).collect();
@@ -119,13 +122,17 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
         download_image(url, PathBuf::from("assets/images"), client).await?;
     }
 
-    let paragraph_selector = Selector::parse("p").unwrap();
-    let mut paragraphs = body.select(&paragraph_selector);
+    body
+        .children() 
+        .filter_map(ElementRef::wrap)
+        .filter_map(translate_element)
+        .for_each(|markdown| writeln!(file, "\n{}", markdown).unwrap());
 
+    // TODO: How to handle potentially no author
     // TODO: When we support multiple authors, this code will be more useful
-    let byline = paragraphs.next().unwrap().text().next().unwrap();
-    let authors = byline.strip_prefix("By").unwrap_or(byline);
-    writeln!(file, "author: {}", authors).unwrap();
+    // let byline = paragraphs.next().unwrap().text().next().unwrap();
+    // let authors = byline.strip_prefix("By").unwrap_or(byline);
+    // writeln!(file, "author: {}", authors).unwrap();
     // let authors: Vec<String> = byline.strip_prefix("By")
     //     .unwrap_or(byline)
     //     .split("and")
@@ -138,16 +145,6 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     //     .collect();
     // println!("author: {:?}", authors);
     
-    // End of liquid header
-    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
-
-    for paragraph in paragraphs {
-        println!("{:#?}", paragraph.inner_html());
-        if let Some(markdown) = translate_paragraph(paragraph) {
-            writeln!(file, "\n{}", markdown).unwrap();
-        }
-    }
-
     Ok(())
 }
 
@@ -171,6 +168,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "br" => None,
         "img" => Some(translate_img(element)),
         "span" => translate_span(element),
+        "p" => translate_paragraph(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
