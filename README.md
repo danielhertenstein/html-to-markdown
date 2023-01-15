@@ -5,7 +5,6 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 ## TODO
 
 * Scrape multiple sites
-* Download the images
 * Convert `<img>`s inside `<p>`s and `<strong>`s
 * Increase flexibility
   * Could the selector text be given at runtime?
@@ -14,3 +13,5 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Put the author where it is supposed to go
 * Handle links to other pages on the same site
 * Make sure pdf downloads work
+* Fix permalink
+  * Should be `/blog/<year>/<month>/<day>/<something>`

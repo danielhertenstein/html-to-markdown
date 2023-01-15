@@ -24,12 +24,7 @@ async fn main() -> Result<()> {
     let content = content[0];
 
     let path = create_file_path(url);
-    let prefix = path.parent().unwrap();
-    std::fs::create_dir_all(prefix).unwrap();
-    let mut file = match File::create(&path) {
-        Err(why) => panic!("Couldn't create {}: {}", path.display(), why),
-        Ok(file) => file,
-    };
+    let mut file = create_file(&path);
 
     // Start of liquid header
     writeln!(file, "---\nlayout: page").unwrap();
@@ -54,6 +49,13 @@ async fn main() -> Result<()> {
     let body: Vec<ElementRef> = content.select(&body_selector).collect();
     assert_eq!(body.len(), 1);
     let body = body[0];
+
+    let image_selector = Selector::parse("img").unwrap();
+    let images = body.select(&image_selector);
+    for image in images {
+        let url = url_from_img(image);
+        download_image(url, PathBuf::from("assets/images"), &client).await?;
+    }
 
     let paragraph_selector = Selector::parse("p").unwrap();
     let mut paragraphs = body.select(&paragraph_selector);
@@ -133,11 +135,28 @@ fn translate_strong(element_ref: ElementRef) -> String {
     format!("**{}**", replace_html_entities(&element_ref.inner_html()).trim())
 }
 
-// TODO: Download image to file
 fn translate_img(element_ref: ElementRef) -> String {
+    let url = url_from_img(element_ref);
+    let markdown = format!("![](/assets/images{}.png){{: .img-fluid }}", url.path());
+    markdown
+}
+
+fn url_from_img(element_ref: ElementRef) -> Url {
     let src = element_ref.value().attr("src").unwrap();
-    let url = Url::parse(src).unwrap();
-    format!("![](/assets/images{}.png){{: .img-fluid }}", url.path())
+    Url::parse(src).unwrap()
+}
+
+async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result<()> {
+    let filename = format!("{}.png", url.path().strip_prefix('/').unwrap());
+    let path = directory.join(filename);
+    let mut file = create_file(&path);
+    let image_bytes = client.get(url)
+        .send()
+        .await?
+        .bytes()
+        .await?;
+    file.write_all(&image_bytes).unwrap();
+    Ok(())
 }
 
 fn replace_html_entities(dirty_str: &str) -> String {
@@ -153,9 +172,19 @@ fn create_file_path(url_str: &str) -> PathBuf {
     PathBuf::from(&path_str)
 }
 
+fn create_file(path: &PathBuf) -> File {
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+    match File::create(path) {
+        Err(why) => panic!("Couldn't create {}: {}", path.display(), why),
+        Ok(file) => file,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempdir::TempDir;
 
     #[test]
     fn test_file_path_creation() {
@@ -236,5 +265,18 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_paragraph(element_ref);
         assert_eq!(markdown, Some("\nThere is some text, [then a link](https://fake_site.com/fake_page.html), and then more text.".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_download_img_with_full_url_src() {
+        let raw_html_str = r#"<img src="https://lh4.googleusercontent.com/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o">"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("img").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let url = url_from_img(element_ref);
+        let tmp_dir = TempDir::new("testing_dir").unwrap();
+        let client = Client::new();
+        download_image(url, tmp_dir.path().to_path_buf(), &client).await.unwrap();
+        assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png").exists());
     }
 }
