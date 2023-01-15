@@ -179,6 +179,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "h3" => Some(translate_h3(element)),
         "h4" => Some(translate_h4(element)),
         "table" => Some("Tables not supported yet. Need to manually translate.".to_string()),
+        "div" => pass_through(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -256,6 +257,10 @@ fn translate_sup(element_ref: ElementRef) -> String {
 }
 
 fn translate_span(element_ref: ElementRef) -> Option<String> {
+    translate_paragraph(element_ref)
+}
+
+fn pass_through(element_ref: ElementRef) -> Option<String> {
     translate_paragraph(element_ref)
 }
 
@@ -608,5 +613,15 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_h4(element_ref);
         assert_eq!(markdown, "#### Header 4");
+    }
+
+    #[test]
+    fn test_pass_through_div() {
+        let raw_html_str = r#"<div><p>Some text</p></div>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("div").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_element(element_ref);
+        assert_eq!(markdown, Some("Some text".to_string()));
     }
 }
