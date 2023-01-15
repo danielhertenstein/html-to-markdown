@@ -35,9 +35,6 @@ async fn main() -> Result<()> {
     let title = title[0];
     writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
 
-    // End of liquid header
-    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
-
     // TODO: Where does the date go?
     let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
     let date: Vec<ElementRef> = content.select(&date_selector).collect();
@@ -60,20 +57,25 @@ async fn main() -> Result<()> {
     let paragraph_selector = Selector::parse("p").unwrap();
     let mut paragraphs = body.select(&paragraph_selector);
 
-    // TODO: Where do the authors go?
+    // TODO: When we support multiple authors, this code will be more useful
     let byline = paragraphs.next().unwrap().text().next().unwrap();
-    let authors: Vec<String> = byline.strip_prefix("By")
-        .unwrap_or(byline)
-        .split("and")
-        .flat_map(|substring| substring.split(','))
-        .map(replace_html_entities)
-        .collect();
-    let authors: Vec<&str> = authors.iter()
-        .map(|substring| substring.trim())
-        .filter(|name| !name.is_empty())
-        .collect();
-    println!("Authors: {:?}", authors);
+    let authors = byline.strip_prefix("By").unwrap_or(byline);
+    writeln!(file, "author: {}", authors).unwrap();
+    // let authors: Vec<String> = byline.strip_prefix("By")
+    //     .unwrap_or(byline)
+    //     .split("and")
+    //     .flat_map(|substring| substring.split(','))
+    //     .map(replace_html_entities)
+    //     .collect();
+    // let authors: Vec<&str> = authors.iter()
+    //     .map(|substring| substring.trim())
+    //     .filter(|name| !name.is_empty())
+    //     .collect();
+    // println!("author: {:?}", authors);
     
+    // End of liquid header
+    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
+
     for paragraph in paragraphs {
         println!("{:#?}", paragraph.inner_html());
         if let Some(markdown) = translate_paragraph(paragraph) {
