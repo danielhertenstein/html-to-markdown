@@ -16,19 +16,19 @@ async fn main() -> Result<()> {
         // "https://www.sacdsa.org/blog/2020/09/10/the-time-is-now/",
         // "https://www.sacdsa.org/blog/2020/07/25/thoughts-on-organizing-to-keep-schools-safe/",
         // "https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/",
-        "https://www.sacdsa.org/blog/2020/06/01/george-floyd-solidarity-statement/",
-        "https://www.sacdsa.org/blog/2020/05/11/free-support-healthcare-workers-poster/",
-        "https://www.sacdsa.org/blog/2020/04/30/chapter-statement-on-covid-crisis/",
-        "https://www.sacdsa.org/blog/2020/03/10/sacramento-democratic-socialists-win-first-seat-on-city-council/",
-        "https://www.sacdsa.org/blog/2019/12/09/sacramento-s-rent-control-fight-is-about-power-not-process/",
-        "https://www.sacdsa.org/blog/2019/12/04/a-people-of-color-s-history-of-dsa-part-3-dsa-and-the-first-rainbow-coalition/",
-        "https://www.sacdsa.org/blog/2019/10/22/beyond-nonprofits-toward-change/",
-        "https://www.sacdsa.org/blog/2019/09/11/a-people-of-color-s-history-of-dsa-part-2-dsa-enters-the-80s/",
-        "https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/",
-        "https://www.sacdsa.org/blog/2019/07/26/against-resolution-22/",
-        "https://www.sacdsa.org/blog/2019/07/26/dont-trust-denney/",
-        "https://www.sacdsa.org/blog/2019/05/15/socialized_sac_ep1/",
-        "https://www.sacdsa.org/blog/2019/05/11/will_california_support_unions/",
+        // "https://www.sacdsa.org/blog/2020/06/01/george-floyd-solidarity-statement/",
+        // "https://www.sacdsa.org/blog/2020/05/11/free-support-healthcare-workers-poster/",
+        // "https://www.sacdsa.org/blog/2020/04/30/chapter-statement-on-covid-crisis/",
+        // "https://www.sacdsa.org/blog/2020/03/10/sacramento-democratic-socialists-win-first-seat-on-city-council/",
+        // "https://www.sacdsa.org/blog/2019/12/09/sacramento-s-rent-control-fight-is-about-power-not-process/",
+        // "https://www.sacdsa.org/blog/2019/12/04/a-people-of-color-s-history-of-dsa-part-3-dsa-and-the-first-rainbow-coalition/",
+        // "https://www.sacdsa.org/blog/2019/10/22/beyond-nonprofits-toward-change/",
+        // "https://www.sacdsa.org/blog/2019/09/11/a-people-of-color-s-history-of-dsa-part-2-dsa-enters-the-80s/",
+        // "https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/",
+        // "https://www.sacdsa.org/blog/2019/07/26/against-resolution-22/",
+        // "https://www.sacdsa.org/blog/2019/07/26/dont-trust-denney/",
+        // "https://www.sacdsa.org/blog/2019/05/15/socialized_sac_ep1/",
+        // "https://www.sacdsa.org/blog/2019/05/11/will_california_support_unions/",
         "https://www.sacdsa.org/blog/2019/03/30/thoughts_on_m4a_canvassing/",
         "https://www.sacdsa.org/blog/2019/03/18/racial_solidarity_committee_mission_statement/",
         "https://www.sacdsa.org/blog/2019/03/14/democratic_socialist_for_mayor_2020/",
@@ -101,11 +101,11 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
 
     // TODO: Where does the date go?
-    let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
-    let date: Vec<ElementRef> = content.select(&date_selector).collect();
-    assert_eq!(date.len(), 1);
-    let date = date[0];
-    println!("Date: {}", replace_html_entities(&date.inner_html()).trim());
+    // let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
+    // let date: Vec<ElementRef> = content.select(&date_selector).collect();
+    // assert_eq!(date.len(), 1);
+    // let date = date[0];
+    // println!("Date: {}", replace_html_entities(&date.inner_html()).trim());
 
     let body_selector = Selector::parse(r#"div[class="quill-output"]"#).unwrap();
     let body: Vec<ElementRef> = content.select(&body_selector).collect();
@@ -142,7 +142,6 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
 
     for paragraph in paragraphs {
-        println!("{:#?}", paragraph.inner_html());
         if let Some(markdown) = translate_paragraph(paragraph) {
             writeln!(file, "\n{}", markdown).unwrap();
         }
@@ -170,6 +169,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "sup" => Some(translate_sup(element)),
         "br" => None,
         "img" => Some(translate_img(element)),
+        "span" => Some(translate_span(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -221,6 +221,10 @@ fn translate_u(element_ref: ElementRef) -> String {
 
 fn translate_sup(element_ref: ElementRef) -> String {
     format!("<sup>{}</sup>", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_span(element_ref: ElementRef) -> String {
+    translate_paragraph(element_ref).unwrap()
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -349,6 +353,16 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_u(element_ref);
         assert_eq!(markdown, "_4: DSA Looks Inward_");
+    }
+
+    #[test]
+    fn test_passing_through_span() {
+        let raw_html_str = r#"<span>4: DSA Looks Inward</span>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("span").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_span(element_ref);
+        assert_eq!(markdown, "4: DSA Looks Inward");
     }
 
     #[test]

@@ -11,3 +11,4 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Wayyyyyy better error handling
 * Handle downloading base64 images
 * Need to iterate over children of body instead of select `<p>`s
+* Should all spans do nothing?
