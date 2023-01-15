@@ -172,6 +172,11 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "ul" => translate_ul(element),
         "ol" => translate_ol(element),
         "blockquote" => Some(translate_blockquote(element)),
+        "hr" => Some("---".to_string()),
+        "h1" => Some(translate_h1(element)),
+        "h2" => Some(translate_h2(element)),
+        "h3" => Some(translate_h3(element)),
+        "h4" => Some(translate_h4(element)),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -223,6 +228,22 @@ fn translate_u(element_ref: ElementRef) -> String {
 
 fn translate_blockquote(element_ref: ElementRef) -> String {
     format!("< {}", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_h1(element_ref: ElementRef) -> String {
+    format!("# {}", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_h2(element_ref: ElementRef) -> String {
+    format!("## {}", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_h3(element_ref: ElementRef) -> String {
+    format!("### {}", translate_paragraph(element_ref).unwrap())
+}
+
+fn translate_h4(element_ref: ElementRef) -> String {
+    format!("#### {}", translate_paragraph(element_ref).unwrap())
 }
 
 fn translate_sup(element_ref: ElementRef) -> String {
@@ -532,5 +553,45 @@ mod tests {
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_ol(element_ref);
         assert_eq!(markdown, None);
+    }
+
+    #[test]
+    fn test_translate_h1() {
+        let raw_html_str = r#"<h1>Header 1</h1>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("h1").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_h1(element_ref);
+        assert_eq!(markdown, "# Header 1");
+    }
+
+    #[test]
+    fn test_translate_h2() {
+        let raw_html_str = r#"<h2>Header 2</h2>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("h2").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_h2(element_ref);
+        assert_eq!(markdown, "## Header 2");
+    }
+
+    #[test]
+    fn test_translate_h3() {
+        let raw_html_str = r#"<h3>Header 3</h3>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("h3").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_h3(element_ref);
+        assert_eq!(markdown, "### Header 3");
+    }
+
+    #[test]
+    fn test_translate_h4() {
+        let raw_html_str = r#"<h4>Header 4</h4>"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("h4").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let markdown = translate_h4(element_ref);
+        assert_eq!(markdown, "#### Header 4");
     }
 }
