@@ -118,8 +118,9 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let image_selector = Selector::parse("img").unwrap();
     let images = body.select(&image_selector);
     for image in images {
-        let url = url_from_img(image);
-        download_image(url, PathBuf::from("assets/images"), client).await?;
+        if let Some(url) = url_from_img(image) {
+            download_image(url, PathBuf::from("assets/images"), client).await?;
+        }
     }
 
     body
@@ -282,21 +283,24 @@ fn translate_ol(element_ref: ElementRef) -> Option<String> {
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
-    let url = url_from_img(element_ref);
-    if url.scheme() == "data" {
-        return "**There is a base64 image here that I don't support yet**.".to_string();
+    match url_from_img(element_ref) {
+        Some(url) => {
+            if url.scheme() == "data" {
+                return "**There is a base64 image here that I don't support yet**.".to_string();
+            }
+            let mut filepath = Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
+            if filepath.as_path().extension().is_none() {
+                filepath.set_extension("png");
+            }
+            format!("![]({}){{: .img-fluid }}", filepath.display())
+        },
+        None => format!("![]({}){{: .img-fluid }}", element_ref.value().attr("src").unwrap())
     }
-    let mut filepath = Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
-    if filepath.as_path().extension().is_none() {
-        filepath.set_extension("png");
-    }
-    let markdown = format!("![]({}){{: .img-fluid }}", filepath.display());
-    markdown
 }
 
-fn url_from_img(element_ref: ElementRef) -> Url {
-    let src = element_ref.value().attr("src").unwrap();
-    Url::parse(src).unwrap()
+fn url_from_img(element_ref: ElementRef) -> Option<Url> {
+    // TODO: Return the actual `Result` when I understand error handling better
+    Url::parse(element_ref.value().attr("src").unwrap()).ok()
 }
 
 async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result<()> {
@@ -493,8 +497,18 @@ mod tests {
         let url = url_from_img(element_ref);
         let tmp_dir = TempDir::new("testing_dir").unwrap();
         let client = Client::new();
-        download_image(url, tmp_dir.path().to_path_buf(), &client).await.unwrap();
+        download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client).await.unwrap();
         assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png").exists());
+    }
+
+    #[test]
+    fn test_image_src_not_a_url() {
+        let raw_html_str = r#"<img src="some_img.png">"#;
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse("img").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let url = url_from_img(element_ref);
+        assert_eq!(url, None);
     }
 
     #[test]
