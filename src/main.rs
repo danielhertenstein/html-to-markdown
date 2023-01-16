@@ -293,7 +293,7 @@ fn translate_img(element_ref: ElementRef) -> String {
                 return "**There is a base64 image here that I don't support yet**.".to_string();
             }
             let mut filepath =
-                Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
+                Path::new("/assets/images").join(extract_last_url_segment(&url));
             if filepath.as_path().extension().is_none() {
                 filepath.set_extension("png");
             }
@@ -311,13 +311,23 @@ fn url_from_img(element_ref: ElementRef) -> Option<Url> {
     Url::parse(element_ref.value().attr("src").unwrap()).ok()
 }
 
+fn extract_last_url_segment(url: &Url) -> String {
+    match url.path_segments() {
+        Some(segments) => segments.last().unwrap().to_string(),
+        None => panic!("Url {} has no path fragments. This shouldn't be a valid path to an image", url),
+    }
+}
+
 async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result<()> {
     if url.scheme() == "data" {
         println!("Skipping base64 image download for now.");
         return Ok(());
     }
-    let filename = format!("{}.png", url.path().strip_prefix('/').unwrap());
-    let path = directory.join(filename);
+    let mut path = directory.join(extract_last_url_segment(&url));
+    if path.as_path().extension().is_none() {
+        // TODO: I don't know how to determine what extension to give this file. Should I even give one? Need to test whether or not the image will load fine in Jekyll/Markdown
+        path.set_extension("png");
+    }
     let mut file = create_file(&path);
     let image_bytes = client.get(url).send().await?.bytes().await?;
     file.write_all(&image_bytes).unwrap();
@@ -580,5 +590,23 @@ mod tests {
         let markdown =
             translate_fragment(r#"<div><p>Some text</p><p>And more text</p></div>"#, "div");
         assert_eq!(markdown, Some("Some text\n\nAnd more text".to_string()));
+    }
+
+    #[test]
+    fn test_extract_last_url_fragment_one_fragment() {
+        let url = Url::parse("https://www.fake_site.org/one_fragment").unwrap();
+        assert_eq!(extract_last_url_segment(&url), "one_fragment");
+    }
+
+    #[test]
+    fn test_extract_last_url_fragment_multiple_fragments() {
+        let url = Url::parse("https://www.fake_site.org/one_fragment/two_fragment").unwrap();
+        assert_eq!(extract_last_url_segment(&url), "two_fragment");
+    }
+
+    #[test]
+    fn test_extract_last_url_fragment_file_extension() {
+        let url = Url::parse("https://www.fake_site.org/one_fragment.png").unwrap();
+        assert_eq!(extract_last_url_segment(&url), "one_fragment.png");
     }
 }

@@ -14,6 +14,5 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
     * I've seen "By ...", "by ...", "By: ..."
   * Some articles have no byline
 * Add support for nested lists
-* Many picture paths are nested
 * Add support for `<table>`s
 * Remove the Sacremento DSA links from the tests
