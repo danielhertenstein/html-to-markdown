@@ -1,8 +1,12 @@
 use ego_tree::NodeRef;
 use reqwest::{Client, Result};
-use scraper::{ElementRef, Html, Node::{Element, Text, self}, Selector};
-use std::{fs::File, io::Write};
+use scraper::{
+    ElementRef, Html,
+    Node::{self, Element, Text},
+    Selector,
+};
 use std::path::{Path, PathBuf};
+use std::{fs::File, io::Write};
 use url::Url;
 
 const DOMAIN: &str = "www.sacdsa.org";
@@ -74,11 +78,7 @@ async fn main() -> Result<()> {
 
 async fn translate_site(client: &Client, url: &str) -> Result<()> {
     dbg!(&url);
-    let raw_html = client.get(url)
-        .send()
-        .await?
-        .text()
-        .await?;
+    let raw_html = client.get(url).send().await?.text().await?;
 
     let document = Html::parse_document(&raw_html);
 
@@ -99,10 +99,20 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let title: Vec<ElementRef> = content.select(&title_selector).collect();
     // We just assume that the first <h1> element is the title
     let title = title[0];
-    writeln!(file, "title: \"{}\"", replace_html_entities(&title.inner_html()).trim()).unwrap();
+    writeln!(
+        file,
+        "title: \"{}\"",
+        replace_html_entities(&title.inner_html()).trim()
+    )
+    .unwrap();
 
     // End of liquid header
-    writeln!(file, "permalink: /{}/\n---", path.with_extension("").display()).unwrap();
+    writeln!(
+        file,
+        "permalink: /{}/\n---",
+        path.with_extension("").display()
+    )
+    .unwrap();
 
     // TODO: Where does the date go?
     // let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
@@ -124,8 +134,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
         }
     }
 
-    body
-        .children() 
+    body.children()
         .filter_map(translate_node)
         .for_each(|markdown| writeln!(file, "\n{}", markdown).unwrap());
 
@@ -145,7 +154,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     //     .filter(|name| !name.is_empty())
     //     .collect();
     // println!("author: {:?}", authors);
-    
+
     Ok(())
 }
 
@@ -155,8 +164,7 @@ fn translate_container(element: ElementRef) -> Option<String> {
         .filter_map(translate_node)
         .collect::<Vec<String>>()
         .join("\n\n");
-    (!markdown.is_empty())
-        .then_some(markdown)
+    (!markdown.is_empty()).then_some(markdown)
 }
 
 fn translate_node(node: NodeRef<Node>) -> Option<String> {
@@ -171,24 +179,24 @@ fn translate_element(element: ElementRef) -> Option<String> {
     println!("{}", &element.html());
     match element.value().name() {
         "a" => Some(translate_link(element)),
-        "blockquote" => translate_and_wrap(element,  Some("< "), None),
+        "blockquote" => translate_and_wrap(element, Some("< "), None),
         "br" => None,
         "div" => translate_container(element),
-        "em" => translate_and_wrap(element,  Some("*"), Some("*")),
+        "em" => translate_and_wrap(element, Some("*"), Some("*")),
         "hr" => Some("---".to_string()),
-        "h1" => translate_and_wrap(element,  Some("# "), None),
-        "h2" => translate_and_wrap(element,  Some("## "), None),
-        "h3" => translate_and_wrap(element,  Some("### "), None),
-        "h4" => translate_and_wrap(element,  Some("#### "), None),
+        "h1" => translate_and_wrap(element, Some("# "), None),
+        "h2" => translate_and_wrap(element, Some("## "), None),
+        "h3" => translate_and_wrap(element, Some("### "), None),
+        "h4" => translate_and_wrap(element, Some("#### "), None),
         "img" => Some(translate_img(element)),
         "li" => translate_text(element),
         "ol" => translate_ol(element),
         "p" => translate_text(element),
         "span" => translate_container(element),
-        "strong" => translate_and_wrap(element,  Some("**"), Some("**")),
-        "sup" => translate_and_wrap(element,  Some("<sup>"), Some("</sup>")),
+        "strong" => translate_and_wrap(element, Some("**"), Some("**")),
+        "sup" => translate_and_wrap(element, Some("<sup>"), Some("</sup>")),
         "table" => Some(element.html()),
-        "u" => translate_and_wrap(element,  Some("_"), Some("_")),
+        "u" => translate_and_wrap(element, Some("_"), Some("_")),
         "ul" => translate_ul(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
@@ -209,8 +217,7 @@ fn translate_text(element: ElementRef) -> Option<String> {
         })
         .trim_end()
         .to_string();
-    (!text.is_empty())
-        .then_some(text)
+    (!text.is_empty()).then_some(text)
 }
 
 fn translate_link(element_ref: ElementRef) -> String {
@@ -221,22 +228,29 @@ fn translate_link(element_ref: ElementRef) -> String {
     let url = Url::parse(&href).unwrap();
     let markdown_url = match url.domain() {
         Some(domain) if domain == DOMAIN => url.path(),
-        _ => url.as_str()
+        _ => url.as_str(),
     };
-    format!("[{}]({})", replace_html_entities(&element_ref.inner_html()).trim(), markdown_url)
+    format!(
+        "[{}]({})",
+        replace_html_entities(&element_ref.inner_html()).trim(),
+        markdown_url
+    )
 }
 
-fn translate_and_wrap(element_ref: ElementRef, prefix: Option<&str>, suffix: Option<&str>) -> Option<String> {
-    translate_text(element_ref)
-        .map(|mut markdown| {
-            if let Some(prefix) = prefix {
-                markdown.insert_str(0, prefix);
-            }
-            if let Some(suffix) = suffix {
-                markdown.push_str(suffix);
-            }
-            markdown
-        })
+fn translate_and_wrap(
+    element_ref: ElementRef,
+    prefix: Option<&str>,
+    suffix: Option<&str>,
+) -> Option<String> {
+    translate_text(element_ref).map(|mut markdown| {
+        if let Some(prefix) = prefix {
+            markdown.insert_str(0, prefix);
+        }
+        if let Some(suffix) = suffix {
+            markdown.push_str(suffix);
+        }
+        markdown
+    })
 }
 
 fn translate_ul(element_ref: ElementRef) -> Option<String> {
@@ -246,8 +260,7 @@ fn translate_ul(element_ref: ElementRef) -> Option<String> {
         .map(|markdown| format!("* {}", markdown))
         .collect::<Vec<String>>()
         .join("\n");
-    (!markdown.is_empty())
-        .then_some(markdown)
+    (!markdown.is_empty()).then_some(markdown)
 }
 
 fn translate_ol(element_ref: ElementRef) -> Option<String> {
@@ -255,11 +268,10 @@ fn translate_ol(element_ref: ElementRef) -> Option<String> {
         .children()
         .filter_map(translate_node)
         .enumerate()
-        .map(|(index, markdown)| format!("{}. {}", index+1, markdown))
+        .map(|(index, markdown)| format!("{}. {}", index + 1, markdown))
         .collect::<Vec<String>>()
         .join("\n");
-    (!markdown.is_empty())
-        .then_some(markdown)
+    (!markdown.is_empty()).then_some(markdown)
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -268,13 +280,17 @@ fn translate_img(element_ref: ElementRef) -> String {
             if url.scheme() == "data" {
                 return "**There is a base64 image here that I don't support yet**.".to_string();
             }
-            let mut filepath = Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
+            let mut filepath =
+                Path::new("/assets/images").join(url.path().strip_prefix('/').unwrap());
             if filepath.as_path().extension().is_none() {
                 filepath.set_extension("png");
             }
             format!("![]({}){{: .img-fluid }}", filepath.display())
-        },
-        None => format!("![]({}){{: .img-fluid }}", element_ref.value().attr("src").unwrap())
+        }
+        None => format!(
+            "![]({}){{: .img-fluid }}",
+            element_ref.value().attr("src").unwrap()
+        ),
     }
 }
 
@@ -291,11 +307,7 @@ async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result
     let filename = format!("{}.png", url.path().strip_prefix('/').unwrap());
     let path = directory.join(filename);
     let mut file = create_file(&path);
-    let image_bytes = client.get(url)
-        .send()
-        .await?
-        .bytes()
-        .await?;
+    let image_bytes = client.get(url).send().await?.bytes().await?;
     file.write_all(&image_bytes).unwrap();
     Ok(())
 }
@@ -327,109 +339,93 @@ mod tests {
     use super::*;
     use tempdir::TempDir;
 
+    fn translate_fragment(raw_html_str: &str, selector_str: &str) -> Option<String> {
+        let html = Html::parse_fragment(raw_html_str);
+        let selector = Selector::parse(selector_str).unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        translate_element(element_ref)
+    }
+
     #[test]
     fn test_file_path_creation() {
         let path = create_file_path("https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/");
-        assert_eq!(path.to_str(), Some("blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward.md"))
+        assert_eq!(
+            path.to_str(),
+            Some("blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward.md")
+        )
     }
 
     #[test]
     fn test_link_translate_different_domain() {
-        let raw_html_str = r#"<a href="https://www.fake_site.org/some_link">Link Text</a>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("a").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_link(element_ref);
-        assert_eq!(markdown, "[Link Text](https://www.fake_site.org/some_link)");
+        assert_eq!(
+            translate_fragment(
+                r#"<a href="https://www.fake_site.org/some_link">Link Text</a>"#,
+                "a"
+            ),
+            Some("[Link Text](https://www.fake_site.org/some_link)".to_string())
+        );
     }
 
     #[test]
-    fn test_child_conversion() {
-        let raw_html_str = r#"<p><a href="https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/" target="_blank">&nbsp;A People of Color's History of DSA, Part 1</a></p>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("p").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+    fn test_element_in_p() {
+        let markdown = translate_fragment(
+            r#"<p><a href="https://www.sacdsa.org/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/" target="_blank">&nbsp;A People of Color's History of DSA, Part 1</a></p>"#,
+            "p",
+        );
         assert_eq!(markdown, Some("[A People of Color's History of DSA, Part 1](/blog/2019/08/13/a-people-of-color-s-history-of-dsa-part-1-socialism-race-and-the-formation-of-dsa/)".to_string()));
     }
-    
+
     #[test]
     fn test_bolding_strongs() {
-        let raw_html_str = r#"<strong>4: DSA Looks Inward</strong>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("strong").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<strong>4: DSA Looks Inward</strong>"#, "strong");
         assert_eq!(markdown, Some("**4: DSA Looks Inward**".to_string()));
     }
 
     #[test]
     fn test_italics_em() {
-        let raw_html_str = r#"<em>4: DSA Looks Inward</em>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("em").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<em>4: DSA Looks Inward</em>"#, "em");
         assert_eq!(markdown, Some("*4: DSA Looks Inward*".to_string()));
     }
 
     #[test]
     fn test_superscripting_sup() {
-        let raw_html_str = r#"<sup>4</sup>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("sup").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<sup>4</sup>"#, "sup");
         assert_eq!(markdown, Some("<sup>4</sup>".to_string()));
     }
 
     #[test]
     fn test_underlining_u() {
-        let raw_html_str = r#"<u>4: DSA Looks Inward</u>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("u").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<u>4: DSA Looks Inward</u>"#, "u");
         assert_eq!(markdown, Some("_4: DSA Looks Inward_".to_string()));
     }
 
     #[test]
     fn test_passing_through_span() {
-        let raw_html_str = r#"<span>4: DSA Looks Inward</span>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("span").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_container(element_ref);
+        let markdown = translate_fragment(r#"<span>4: DSA Looks Inward</span>"#, "span");
         assert_eq!(markdown, Some("4: DSA Looks Inward".to_string()));
     }
 
     #[test]
     fn test_span_with_only_br() {
-        let raw_html_str = r#"<span><br></span>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("span").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_container(element_ref);
+        let markdown = translate_fragment(r#"<span><br></span>"#, "span");
         assert_eq!(markdown, None);
     }
-    
+
     #[test]
-    fn test_strong_with_img_inside() {
-        let raw_html_str = r#"<strong><img src="https://www.fake_site.com/fake_image.png"></strong>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("strong").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
-        assert_eq!(markdown, Some("**![](/assets/images/fake_image.png){: .img-fluid }**".to_string()));
+    fn test_strong_with_element_inside() {
+        let markdown = translate_fragment(
+            r#"<strong><img src="https://www.fake_site.com/fake_image.png"></strong>"#,
+            "strong",
+        );
+        assert_eq!(
+            markdown,
+            Some("**![](/assets/images/fake_image.png){: .img-fluid }**".to_string())
+        );
     }
-    
+
     #[test]
     fn test_skip_brs() {
-        let raw_html_str = "<br>";
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("br").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment("<br>", "br");
         assert_eq!(markdown, None);
     }
 
@@ -442,12 +438,11 @@ mod tests {
 
     #[test]
     fn test_img_translate() {
-        let raw_html_str = r#"<img src="https://lh4.googleusercontent.com/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o">"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("img").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_img(element_ref);
-        assert_eq!(markdown, "![](/assets/images/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png){: .img-fluid }");
+        let markdown = translate_fragment(
+            r#"<img src="https://lh4.googleusercontent.com/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o">"#,
+            "img",
+        );
+        assert_eq!(markdown, Some("![](/assets/images/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -459,12 +454,11 @@ mod tests {
     }
 
     #[test]
-    fn test_translate_link_inside_text() {
-        let raw_html_str = r#"<p>There is some text, <a href="https://fake_site.com/fake_page.html">then a link</a>, and then more text."#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("p").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_text(element_ref);
+    fn test_translate_inline_link() {
+        let markdown = translate_fragment(
+            r#"<p>There is some text, <a href="https://fake_site.com/fake_page.html">then a link</a>, and then more text."#,
+            "p",
+        );
         assert_eq!(markdown, Some("There is some text, [then a link](https://fake_site.com/fake_page.html), and then more text.".to_string()));
     }
 
@@ -477,7 +471,9 @@ mod tests {
         let url = url_from_img(element_ref);
         let tmp_dir = TempDir::new("testing_dir").unwrap();
         let client = Client::new();
-        download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client).await.unwrap();
+        download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client)
+            .await
+            .unwrap();
         assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png").exists());
     }
 
@@ -493,121 +489,84 @@ mod tests {
 
     #[test]
     fn test_link_matching_domain() {
-        let raw_html_str = r#"<a href="https://www.sacdsa.org/some_link">Link Text</a>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("a").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_link(element_ref);
-        assert_eq!(markdown, "[Link Text](/some_link)");
+        let markdown = translate_fragment(
+            r#"<a href="https://www.sacdsa.org/some_link">Link Text</a>"#,
+            "a",
+        );
+        assert_eq!(markdown, Some("[Link Text](/some_link)".to_string()));
     }
 
     #[test]
     fn test_translate_link_without_www() {
-        let raw_html_str = r#"<a href="some_site.org/some_link">Link Text</a>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("a").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_link(element_ref);
-        assert_eq!(markdown, "[Link Text](https://some_site.org/some_link)");
+        let markdown =
+            translate_fragment(r#"<a href="some_site.org/some_link">Link Text</a>"#, "a");
+        assert_eq!(
+            markdown,
+            Some("[Link Text](https://some_site.org/some_link)".to_string())
+        );
     }
 
     #[test]
     fn test_translate_ul_with_items() {
-        let raw_html_str = r#"<ul><li>One</li><li>Two</li></ul>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("ul").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_ul(element_ref);
+        let markdown = translate_fragment(r#"<ul><li>One</li><li>Two</li></ul>"#, "ul");
         assert_eq!(markdown, Some("* One\n* Two".to_string()));
     }
 
     #[test]
     fn test_translate_ul_empty() {
-        let raw_html_str = r#"<ul></ul>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("ul").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_ul(element_ref);
+        let markdown = translate_fragment(r#"<ul></ul>"#, "ul");
         assert_eq!(markdown, None);
     }
 
     #[test]
     fn test_translate_blockquote() {
-        let raw_html_str = r#"<blockquote>This is a blockquote.</blockquote>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("blockquote").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(
+            r#"<blockquote>This is a blockquote.</blockquote>"#,
+            "blockquote",
+        );
         assert_eq!(markdown, Some("< This is a blockquote.".to_string()));
     }
 
     #[test]
     fn test_translate_ol_with_items() {
-        let raw_html_str = r#"<ol><li>One</li><li>Two</li></ol>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("ol").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_ol(element_ref);
+        let markdown = translate_fragment(r#"<ol><li>One</li><li>Two</li></ol>"#, "ol");
         assert_eq!(markdown, Some("1. One\n2. Two".to_string()));
     }
 
     #[test]
     fn test_translate_ol_empty() {
-        let raw_html_str = r#"<ol></ol>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("ol").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_ol(element_ref);
+        let markdown = translate_fragment(r#"<ol></ol>"#, "ol");
         assert_eq!(markdown, None);
     }
 
     #[test]
     fn test_translate_h1() {
-        let raw_html_str = r#"<h1>Header 1</h1>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("h1").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<h1>Header 1</h1>"#, "h1");
         assert_eq!(markdown, Some("# Header 1".to_string()));
     }
 
     #[test]
     fn test_translate_h2() {
-        let raw_html_str = r#"<h2>Header 2</h2>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("h2").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<h2>Header 2</h2>"#, "h2");
         assert_eq!(markdown, Some("## Header 2".to_string()));
     }
 
     #[test]
     fn test_translate_h3() {
-        let raw_html_str = r#"<h3>Header 3</h3>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("h3").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<h3>Header 3</h3>"#, "h3");
         assert_eq!(markdown, Some("### Header 3".to_string()));
     }
 
     #[test]
     fn test_translate_h4() {
-        let raw_html_str = r#"<h4>Header 4</h4>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("h4").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown = translate_fragment(r#"<h4>Header 4</h4>"#, "h4");
         assert_eq!(markdown, Some("#### Header 4".to_string()));
     }
 
     #[test]
     fn test_translate_div() {
-        let raw_html_str = r#"<div><p>Some text</p><p>And more text</p></div>"#;
-        let html = Html::parse_fragment(raw_html_str);
-        let selector = Selector::parse("div").unwrap();
-        let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_element(element_ref);
+        let markdown =
+            translate_fragment(r#"<div><p>Some text</p><p>And more text</p></div>"#, "div");
         assert_eq!(markdown, Some("Some text\n\nAnd more text".to_string()));
     }
 }
