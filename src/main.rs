@@ -1,5 +1,6 @@
+use ego_tree::NodeRef;
 use reqwest::{Client, Result};
-use scraper::{ElementRef, Html, Node::{Element, Text}, Selector};
+use scraper::{ElementRef, Html, Node::{Element, Text, self}, Selector};
 use std::{fs::File, io::Write};
 use std::path::{Path, PathBuf};
 use url::Url;
@@ -125,8 +126,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
 
     body
         .children() 
-        .filter_map(ElementRef::wrap)
-        .filter_map(translate_element)
+        .filter_map(translate_node)
         .for_each(|markdown| writeln!(file, "\n{}", markdown).unwrap());
 
     // TODO: How to handle potentially no author
@@ -149,6 +149,24 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     Ok(())
 }
 
+fn translate_container(element: ElementRef) -> Option<String> {
+    let markdown = element
+        .children()
+        .filter_map(translate_node)
+        .collect::<Vec<String>>()
+        .join("\n\n");
+    (!markdown.is_empty())
+        .then_some(markdown)
+}
+
+fn translate_node(node: NodeRef<Node>) -> Option<String> {
+    match node.value() {
+        Text(text) => Some(replace_html_entities(text).trim().to_string()),
+        Element(_) => translate_element(ElementRef::wrap(node).unwrap()),
+        _ => panic!("Unsupported node type {:#?}", node.value()),
+    }
+}
+
 fn translate_element(element: ElementRef) -> Option<String> {
     println!("{}", &element.html());
     match element.value().name() {
@@ -159,10 +177,11 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "sup" => translate_sup(element),
         "br" => None,
         "img" => Some(translate_img(element)),
-        "span" => translate_span(element),
+        "span" => translate_container(element),
         "p" => translate_text(element),
         "ul" => translate_ul(element),
         "ol" => translate_ol(element),
+        "li" => translate_text(element),
         "blockquote" => translate_blockquote(element),
         "hr" => Some("---".to_string()),
         "h1" => translate_h1(element),
@@ -170,7 +189,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "h3" => translate_h3(element),
         "h4" => translate_h4(element),
         "table" => Some(element.html()),
-        "div" => pass_through(element),
+        "div" => translate_container(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
 }
@@ -178,13 +197,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
 fn translate_text(element: ElementRef) -> Option<String> {
     let text = element
         .children()
-        .filter_map(|node| {
-            match node.value() {
-                Text(text) => Some(replace_html_entities(text).trim().to_string()),
-                Element(_) => translate_element(ElementRef::wrap(node).unwrap()),
-                _ => panic!("Unsupported node type {:#?}", node.value()),
-            }
-        })
+        .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
             if a.ends_with(' ') && b.starts_with(',') {
                 a.pop();
@@ -249,19 +262,10 @@ fn translate_sup(element_ref: ElementRef) -> Option<String> {
     translate_text(element_ref).map(|markdown| format!("<sup>{}</sup>", markdown))
 }
 
-fn translate_span(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref)
-}
-
-fn pass_through(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref)
-}
-
 fn translate_ul(element_ref: ElementRef) -> Option<String> {
     let markdown = element_ref
         .children()
-        .filter_map(ElementRef::wrap)
-        .filter_map(translate_text)
+        .filter_map(translate_node)
         .map(|markdown| format!("* {}", markdown))
         .collect::<Vec<String>>()
         .join("\n");
@@ -272,8 +276,7 @@ fn translate_ul(element_ref: ElementRef) -> Option<String> {
 fn translate_ol(element_ref: ElementRef) -> Option<String> {
     let markdown = element_ref
         .children()
-        .filter_map(ElementRef::wrap)
-        .filter_map(translate_text)
+        .filter_map(translate_node)
         .enumerate()
         .map(|(index, markdown)| format!("{}. {}", index+1, markdown))
         .collect::<Vec<String>>()
@@ -419,7 +422,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("span").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_span(element_ref);
+        let markdown = translate_container(element_ref);
         assert_eq!(markdown, Some("4: DSA Looks Inward".to_string()));
     }
 
@@ -429,7 +432,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("span").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_span(element_ref);
+        let markdown = translate_container(element_ref);
         assert_eq!(markdown, None);
     }
     
@@ -622,12 +625,12 @@ mod tests {
     }
 
     #[test]
-    fn test_pass_through_div() {
-        let raw_html_str = r#"<div><p>Some text</p></div>"#;
+    fn test_translate_div() {
+        let raw_html_str = r#"<div><p>Some text</p><p>And more text</p></div>"#;
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("div").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
         let markdown = translate_element(element_ref);
-        assert_eq!(markdown, Some("Some text".to_string()));
+        assert_eq!(markdown, Some("Some text\n\nAnd more text".to_string()));
     }
 }

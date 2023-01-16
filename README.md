@@ -10,7 +10,6 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
   * Could the selector text be given at runtime?
 * Wayyyyyy better error handling
 * Handle downloading base64 images
-* Should all spans do nothing?
 * Get author into liquid again
   * Format of authors isn't always the same
     * I've seen "By ...", "by ...", "By: ..."

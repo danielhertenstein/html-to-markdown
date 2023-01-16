@@ -314,6 +314,7 @@ dependencies = [
 name = "html-to-markdown"
 version = "0.1.0"
 dependencies = [
+ "ego-tree",
  "reqwest",
  "scraper",
  "tempdir",
