@@ -171,10 +171,10 @@ fn translate_element(element: ElementRef) -> Option<String> {
     println!("{}", &element.html());
     match element.value().name() {
         "a" => Some(translate_link(element)),
-        "strong" => translate_strong(element),
-        "em" => translate_em(element),
-        "u" => translate_u(element),
-        "sup" => translate_sup(element),
+        "strong" => translate_and_wrap(element,  Some("**"), Some("**")),
+        "em" => translate_and_wrap(element,  Some("*"), Some("*")),
+        "u" => translate_and_wrap(element,  Some("_"), Some("_")),
+        "sup" => translate_and_wrap(element,  Some("<sup>"), Some("</sup>")),
         "br" => None,
         "img" => Some(translate_img(element)),
         "span" => translate_container(element),
@@ -182,12 +182,12 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "ul" => translate_ul(element),
         "ol" => translate_ol(element),
         "li" => translate_text(element),
-        "blockquote" => translate_blockquote(element),
+        "blockquote" => translate_and_wrap(element,  Some("< "), None),
         "hr" => Some("---".to_string()),
-        "h1" => translate_h1(element),
-        "h2" => translate_h2(element),
-        "h3" => translate_h3(element),
-        "h4" => translate_h4(element),
+        "h1" => translate_and_wrap(element,  Some("# "), None),
+        "h2" => translate_and_wrap(element,  Some("## "), None),
+        "h3" => translate_and_wrap(element,  Some("### "), None),
+        "h4" => translate_and_wrap(element,  Some("#### "), None),
         "table" => Some(element.html()),
         "div" => translate_container(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
@@ -226,40 +226,17 @@ fn translate_link(element_ref: ElementRef) -> String {
     format!("[{}]({})", replace_html_entities(&element_ref.inner_html()).trim(), markdown_url)
 }
 
-fn translate_strong(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("**{}**", markdown))
-}
-
-fn translate_em(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("*{}*", markdown))
-}
-
-fn translate_u(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("_{}_", markdown))
-}
-
-fn translate_blockquote(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("< {}", markdown))
-}
-
-fn translate_h1(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("# {}", markdown))
-}
-
-fn translate_h2(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("## {}", markdown))
-}
-
-fn translate_h3(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("### {}", markdown))
-}
-
-fn translate_h4(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("#### {}", markdown))
-}
-
-fn translate_sup(element_ref: ElementRef) -> Option<String> {
-    translate_text(element_ref).map(|markdown| format!("<sup>{}</sup>", markdown))
+fn translate_and_wrap(element_ref: ElementRef, prefix: Option<&str>, suffix: Option<&str>) -> Option<String> {
+    translate_text(element_ref)
+        .map(|mut markdown| {
+            if let Some(prefix) = prefix {
+                markdown.insert_str(0, prefix);
+            }
+            if let Some(suffix) = suffix {
+                markdown.push_str(suffix);
+            }
+            markdown
+        })
 }
 
 fn translate_ul(element_ref: ElementRef) -> Option<String> {
@@ -382,7 +359,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("strong").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_strong(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("**4: DSA Looks Inward**".to_string()));
     }
 
@@ -392,7 +369,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("em").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_em(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("*4: DSA Looks Inward*".to_string()));
     }
 
@@ -402,7 +379,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("sup").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_sup(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("<sup>4</sup>".to_string()));
     }
 
@@ -412,7 +389,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("u").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_u(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("_4: DSA Looks Inward_".to_string()));
     }
 
@@ -442,7 +419,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("strong").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_strong(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("**![](/assets/images/fake_image.png){: .img-fluid }**".to_string()));
     }
     
@@ -560,7 +537,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("blockquote").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_blockquote(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("< This is a blockquote.".to_string()));
     }
 
@@ -590,7 +567,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("h1").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_h1(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("# Header 1".to_string()));
     }
 
@@ -600,7 +577,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("h2").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_h2(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("## Header 2".to_string()));
     }
 
@@ -610,7 +587,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("h3").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_h3(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("### Header 3".to_string()));
     }
 
@@ -620,7 +597,7 @@ mod tests {
         let html = Html::parse_fragment(raw_html_str);
         let selector = Selector::parse("h4").unwrap();
         let element_ref = html.select(&selector).next().unwrap();
-        let markdown = translate_h4(element_ref);
+        let markdown = translate_element(element_ref);
         assert_eq!(markdown, Some("#### Header 4".to_string()));
     }
 
