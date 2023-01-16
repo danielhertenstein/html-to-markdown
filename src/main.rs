@@ -121,6 +121,18 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     // let date = date[0];
     // println!("Date: {}", replace_html_entities(&date.inner_html()).trim());
 
+    // Handle the image at the top if there is one
+    let featured_image_selector = Selector::parse(r#"img[class="news-featured-image"]"#).unwrap();
+    let featured_image = document.select(&featured_image_selector).next();
+    if let Some(image) = featured_image {
+        if let Some(url) = url_from_img(image) {
+            download_image(url, PathBuf::from("assets/images"), client).await?;
+        }
+        if let Some(markdown) = translate_element(image) {
+            writeln!(file, "\n{}", markdown).unwrap();
+        }
+    }
+
     let body_selector = Selector::parse(r#"div[class="quill-output"]"#).unwrap();
     let body: Vec<ElementRef> = content.select(&body_selector).collect();
     assert_eq!(body.len(), 1);

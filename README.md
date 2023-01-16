@@ -4,7 +4,6 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 
 ## TODO
 
-* Get the picture at the top if there is one
 * Add a check for if two images have the same download path
 * Increase flexibility
   * Could the selector text be given at runtime?
