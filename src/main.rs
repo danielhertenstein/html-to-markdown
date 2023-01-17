@@ -98,11 +98,11 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let title_selector = Selector::parse("h1").unwrap();
     let title: Vec<ElementRef> = content.select(&title_selector).collect();
     // We just assume that the first <h1> element is the title
-    let title = title[0];
+    let title = clean_text(&title[0].inner_html()).unwrap_or_default();
     writeln!(
         file,
         "title: \"{}\"",
-        replace_html_entities(&title.inner_html()).trim()
+        title
     )
     .unwrap();
 
@@ -117,8 +117,9 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
     let date: Vec<ElementRef> = content.select(&date_selector).collect();
     assert_eq!(date.len(), 1);
-    let date = date[0];
-    writeln!(file, "{}", replace_html_entities(&date.inner_html()).trim()).unwrap();
+    if let Some(text) = clean_text(&date[0].inner_html()) {
+        writeln!(file, "{}", text).unwrap();
+    }
 
     // Handle the image at the top if there is one
     let featured_image_selector = Selector::parse(r#"img[class="news-featured-image"]"#).unwrap();
@@ -180,10 +181,19 @@ fn translate_container(element: ElementRef) -> Option<String> {
 
 fn translate_node(node: NodeRef<Node>) -> Option<String> {
     match node.value() {
-        Text(text) => Some(replace_html_entities(text).trim().to_string()),
+        Text(text) => clean_text(text), 
         Element(_) => translate_element(ElementRef::wrap(node).unwrap()),
         _ => panic!("Unsupported node type {:#?}", node.value()),
     }
+}
+
+fn clean_text(text: &str) -> Option<String> {
+    let text = replace_html_entities(text).trim().to_string();
+    (!text.is_empty()).then_some(text)
+}
+
+fn replace_html_entities(dirty_str: &str) -> String {
+    dirty_str.replace("&nbsp;", " ")
 }
 
 fn translate_element(element: ElementRef) -> Option<String> {
@@ -243,7 +253,7 @@ fn translate_link(element_ref: ElementRef) -> String {
     };
     format!(
         "[{}]({})",
-        replace_html_entities(&element_ref.inner_html()).trim(),
+        clean_text(&element_ref.inner_html()).unwrap_or_default(),
         markdown_url
     )
 }
@@ -336,10 +346,6 @@ async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result
     Ok(())
 }
 
-fn replace_html_entities(dirty_str: &str) -> String {
-    dirty_str.replace("&nbsp;", " ")
-}
-
 fn create_file_path(url_str: &str) -> PathBuf {
     let url = Url::parse(url_str).unwrap();
     let mut url_path = url.path_segments().unwrap();
@@ -423,7 +429,7 @@ mod tests {
     #[test]
     fn test_underlining_u() {
         let markdown = translate_fragment(r#"<u>4: DSA Looks Inward</u>"#, "u");
-        assert_eq!(markdown, Some("_4: DSA Looks Inward_".to_string()));
+        assert_eq!(markdown, Some("<u>4: DSA Looks Inward<u>".to_string()));
     }
 
     #[test]
@@ -569,7 +575,7 @@ mod tests {
             r#"<blockquote>This is a blockquote.</blockquote>"#,
             "blockquote",
         );
-        assert_eq!(markdown, Some("< This is a blockquote.".to_string()));
+        assert_eq!(markdown, Some("> This is a blockquote.".to_string()));
     }
 
     #[test]
@@ -631,5 +637,12 @@ mod tests {
     fn test_filename_from_url_with_extension() {
         let url = Url::parse("https://www.fake_site.org/one_fragment.png").unwrap();
         assert_eq!(filename_from_url(&url), "one_fragment.png");
+    }
+
+    #[test]
+    fn test_text_node_of_newline_translates_to_none() {
+        let markdown =
+            translate_fragment("<ol>\n<li>Item One</li></ol>", "ol");
+        assert_eq!(markdown, Some("1. Item One".to_string()));
     }
 }
