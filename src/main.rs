@@ -6,7 +6,10 @@ use scraper::{
     Selector,
 };
 use std::path::{Path, PathBuf};
-use std::{fs::{File, OpenOptions}, io::Write};
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+};
 use url::Url;
 
 const DOMAIN: &str = "www.sacdsa.org";
@@ -99,12 +102,7 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     let title: Vec<ElementRef> = content.select(&title_selector).collect();
     // We just assume that the first <h1> element is the title
     let title = clean_text(&title[0].inner_html()).unwrap_or_default();
-    writeln!(
-        file,
-        "title: \"{}\"",
-        title
-    )
-    .unwrap();
+    writeln!(file, "title: \"{}\"", title).unwrap();
 
     // End of liquid header
     writeln!(
@@ -181,7 +179,7 @@ fn translate_container(element: ElementRef) -> Option<String> {
 
 fn translate_node(node: NodeRef<Node>) -> Option<String> {
     match node.value() {
-        Text(text) => clean_text(text), 
+        Text(text) => clean_text(text),
         Element(_) => translate_element(ElementRef::wrap(node).unwrap()),
         _ => panic!("Unsupported node type {:#?}", node.value()),
     }
@@ -228,12 +226,13 @@ fn translate_text(element: ElementRef) -> Option<String> {
         .children()
         .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
-            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n')) {
+            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')'))
+            {
                 a.pop();
             }
             a.reserve(b.len() + 1);
             a.push_str(&b);
-            if !a.ends_with('\n') {
+            if !(a.ends_with('\n') || a.ends_with('(')) {
                 a.push(' ');
             }
             a
@@ -303,8 +302,7 @@ fn translate_img(element_ref: ElementRef) -> String {
             if url.scheme() == "data" {
                 return "**There is a base64 image here that I don't support yet**.".to_string();
             }
-            let filepath =
-                Path::new("/assets/images").join(filename_from_url(&url));
+            let filepath = Path::new("/assets/images").join(filename_from_url(&url));
             // if filepath.as_path().extension().is_none() {
             //     filepath.set_extension("png");
             // }
@@ -329,7 +327,10 @@ fn url_from_img(element_ref: ElementRef) -> Option<Url> {
 fn filename_from_url(url: &Url) -> String {
     match url.path_segments() {
         Some(segments) => segments.collect::<Vec<&str>>().join("_"),
-        None => panic!("Url {} has no path fragments. This shouldn't be a valid path to an image", url),
+        None => panic!(
+            "Url {} has no path fragments. This shouldn't be a valid path to an image",
+            url
+        ),
     }
 }
 
@@ -351,7 +352,7 @@ async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result
 fn create_file_path(url_str: &str) -> PathBuf {
     let url = Url::parse(url_str).unwrap();
     let mut url_path = url.path_segments().unwrap();
-    url_path.next();  // This is "blog"
+    url_path.next(); // This is "blog"
     let year = url_path.next().unwrap();
     let month = url_path.next().unwrap();
     let day = url_path.next().unwrap();
@@ -461,11 +462,12 @@ mod tests {
 
     #[test]
     fn test_img_translate_one_fragment() {
-        let markdown = translate_fragment(
-            r#"<img src="https://www.fake_site.org/image_src">"#,
-            "img",
+        let markdown =
+            translate_fragment(r#"<img src="https://www.fake_site.org/image_src">"#, "img");
+        assert_eq!(
+            markdown,
+            Some("![](/assets/images/image_src){: .img-fluid }".to_string())
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -474,16 +476,19 @@ mod tests {
             r#"<img src="https://www.fake_site.org/image_src/another_fragment">"#,
             "img",
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string()));
+        assert_eq!(
+            markdown,
+            Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string())
+        );
     }
 
     #[test]
     fn test_img_translate_relative_src() {
-        let markdown = translate_fragment(
-            r#"<img src="/image_src/another_fragment">"#,
-            "img",
+        let markdown = translate_fragment(r#"<img src="/image_src/another_fragment">"#, "img");
+        assert_eq!(
+            markdown,
+            Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string())
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -631,15 +636,25 @@ mod tests {
 
     #[test]
     fn test_text_node_of_newline_translates_to_none() {
-        let markdown =
-            translate_fragment("<ol>\n<li>Item One</li></ol>", "ol");
+        let markdown = translate_fragment("<ol>\n<li>Item One</li></ol>", "ol");
         assert_eq!(markdown, Some("1. Item One".to_string()));
     }
 
     #[test]
     fn test_paragraph_with_linebreaks() {
-        let markdown =
-            translate_fragment("<p>Some text<br>Some more text</p>", "p");
+        let markdown = translate_fragment("<p>Some text<br>Some more text</p>", "p");
         assert_eq!(markdown, Some("Some text\nSome more text".to_string()));
+    }
+
+    #[test]
+    fn test_paragraph_with_parens_link() {
+        let markdown = translate_fragment(
+            r#"<p>Hi (<a href="www.fake_site.org/fake_page">link</a>) there</p>"#,
+            "p",
+        );
+        assert_eq!(
+            markdown,
+            Some("Hi ([link](https://www.fake_site.org/fake_page)) there".to_string())
+        );
     }
 }
