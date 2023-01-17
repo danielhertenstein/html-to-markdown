@@ -211,7 +211,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "li" => translate_text(element),
         "ol" => translate_ol(element),
         "p" => translate_text(element),
-        "span" => translate_container(element),
+        "span" => translate_text(element),
         "strong" => translate_and_wrap(element, Some("**"), Some("**")),
         "sup" => translate_and_wrap(element, Some("<sup>"), Some("</sup>")),
         "table" => Some(element.html()),
@@ -647,6 +647,12 @@ mod tests {
     }
 
     #[test]
+    fn test_paragraph_with_spans_and_linebreaks() {
+        let markdown = translate_fragment("<p><span>Some text</span><span><br></span><span>Some more text</span></p>", "p");
+        assert_eq!(markdown, Some("Some text\nSome more text".to_string()));
+    }
+
+    #[test]
     fn test_paragraph_with_parens_link() {
         let markdown = translate_fragment(
             r#"<p>Hi (<a href="www.fake_site.org/fake_page">link</a>) there</p>"#,
@@ -656,5 +662,32 @@ mod tests {
             markdown,
             Some("Hi ([link](https://www.fake_site.org/fake_page)) there".to_string())
         );
+    }
+
+    #[test]
+    fn test_strongs_and_text_in_span() {
+        let markdown = translate_fragment(
+            r#"<p><span>Plain <strong>strong</strong>, plain <strong>strong again</strong>, and plain again.</span></p>"#,
+            "p",
+        );
+        assert_eq!(markdown, Some("Plain **strong**, plain **strong again**, and plain again.".to_string()));
+    }
+
+    #[test]
+    fn test_span_in_link_text() {
+        let markdown = translate_fragment(
+            r#"<a href="https://www.fake_site.org/"><span><span>link text</span></span></a>"#,
+            "a",
+        );
+        assert_eq!(markdown, Some("[link text](https://www.fake_site.org/)".to_string()));
+    }
+
+    #[test]
+    fn test_span_break_on_period() {
+        let markdown = translate_fragment(
+            r#"<p><span>End of sentence </span><span>. Start of sentence</span></p>"#,
+            "p",
+        );
+        assert_eq!(markdown, Some("End of sentence. Start of sentence".to_string()));
     }
 }
