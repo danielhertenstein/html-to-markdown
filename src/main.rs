@@ -254,9 +254,13 @@ fn translate_link(element_ref: ElementRef) -> String {
         Some(domain) if domain == DOMAIN => url.path(),
         _ => url.as_str(),
     };
+    let markdown_text = match translate_text(element_ref) {
+        Some(markdown) => clean_text(&markdown).unwrap_or(markdown_url.to_string()),
+        None => markdown_url.to_string(),
+    };
     format!(
         "[{}]({})",
-        clean_text(&element_ref.inner_html()).unwrap_or_default(),
+        markdown_text,
         markdown_url
     )
 }
@@ -691,5 +695,14 @@ mod tests {
             "p",
         );
         assert_eq!(markdown, Some("End of sentence. Start of sentence".to_string()));
+    }
+
+    #[test]
+    fn test_translate_link_with_no_text() {
+        let markdown = translate_fragment(
+            r#"<a href="https://www.fake_site.org"></a>"#,
+            "a"
+        );
+        assert_eq!(markdown, Some("[https://www.fake_site.org/](https://www.fake_site.org/)".to_string()));
     }
 }
