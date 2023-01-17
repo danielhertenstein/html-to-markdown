@@ -199,7 +199,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
     match element.value().name() {
         "a" => Some(translate_link(element)),
         "blockquote" => translate_and_wrap(element, Some("> "), None),
-        "br" => Some("<br>".to_string()),
+        "br" => Some("  \n".to_string()),
         "div" => translate_container(element),
         "em" => translate_and_wrap(element, Some("*"), Some("*")),
         "hr" => Some("---".to_string()),
@@ -222,23 +222,25 @@ fn translate_element(element: ElementRef) -> Option<String> {
 }
 
 fn translate_text(element: ElementRef) -> Option<String> {
-    let text = element
+    let mut text = element
         .children()
         .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
-            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')') || b.starts_with(". ") || b.starts_with("<br>"))
+            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')') || b.starts_with(". ") || b == "  \n")
             {
                 a.pop();
             }
             a.reserve(b.len() + 1);
             a.push_str(&b);
-            if !(a.ends_with('\n') || a.ends_with('(') || b.ends_with("<br>")) {
+            if !(a.ends_with('\n') || a.ends_with('(')) {
                 a.push(' ');
             }
             a
         })
-        .trim_end()
         .to_string();
+    if text.ends_with(' ') {
+        text.pop();
+    }
     (!text.is_empty()).then_some(text)
 }
 
@@ -643,13 +645,13 @@ mod tests {
     #[test]
     fn test_paragraph_with_linebreaks() {
         let markdown = translate_fragment("<p>Some text<br>Some more text</p>", "p");
-        assert_eq!(markdown, Some("Some text<br>Some more text".to_string()));
+        assert_eq!(markdown, Some("Some text  \nSome more text".to_string()));
     }
 
     #[test]
     fn test_paragraph_with_spans_and_linebreaks() {
         let markdown = translate_fragment("<p><span>Some text</span><span><br></span><span>Some more text</span></p>", "p");
-        assert_eq!(markdown, Some("Some text<br>Some more text".to_string()));
+        assert_eq!(markdown, Some("Some text  \nSome more text".to_string()));
     }
 
     #[test]

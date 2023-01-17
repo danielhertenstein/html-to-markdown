@@ -15,3 +15,5 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Add support for nested lists
 * Add support for `<table>`s
 * Remove the Sacremento DSA links from the tests
+* Translating `<br>`s to `  \n` is adding extra lines to the markdown
+  * Analyze the collected vector before joining
