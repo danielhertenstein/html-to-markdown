@@ -307,8 +307,12 @@ fn translate_img(element_ref: ElementRef) -> String {
 }
 
 fn url_from_img(element_ref: ElementRef) -> Option<Url> {
+    let mut src = element_ref.value().attr("src").unwrap().to_string();
+    if src.starts_with('/') {
+        src.insert_str(0, &("https://".to_owned() + DOMAIN));
+    }
     // TODO: Return the actual `Result` when I understand error handling better
-    Url::parse(element_ref.value().attr("src").unwrap()).ok()
+    Url::parse(&src).ok()
 }
 
 fn filename_from_url(url: &Url) -> String {
@@ -459,12 +463,30 @@ mod tests {
     }
 
     #[test]
-    fn test_img_translate() {
+    fn test_img_translate_one_fragment() {
         let markdown = translate_fragment(
-            r#"<img src="https://lh4.googleusercontent.com/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o">"#,
+            r#"<img src="https://www.fake_site.org/image_src">"#,
             "img",
         );
-        assert_eq!(markdown, Some("![](/assets/images/tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png){: .img-fluid }".to_string()));
+        assert_eq!(markdown, Some("![](/assets/images/image_src.png){: .img-fluid }".to_string()));
+    }
+
+    #[test]
+    fn test_img_translate_two_fragments() {
+        let markdown = translate_fragment(
+            r#"<img src="https://www.fake_site.org/image_src/another_fragment">"#,
+            "img",
+        );
+        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment.png){: .img-fluid }".to_string()));
+    }
+
+    #[test]
+    fn test_img_translate_relative_src() {
+        let markdown = translate_fragment(
+            r#"<img src="/image_src/another_fragment">"#,
+            "img",
+        );
+        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment.png){: .img-fluid }".to_string()));
     }
 
     #[test]
