@@ -226,7 +226,7 @@ fn translate_text(element: ElementRef) -> Option<String> {
         .children()
         .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
-            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')'))
+            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')') || b.starts_with(". "))
             {
                 a.pop();
             }
