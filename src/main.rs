@@ -190,7 +190,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
     println!("{}", &element.html());
     match element.value().name() {
         "a" => Some(translate_link(element)),
-        "blockquote" => translate_and_wrap(element, Some("< "), None),
+        "blockquote" => translate_and_wrap(element, Some("> "), None),
         "br" => None,
         "div" => translate_container(element),
         "em" => translate_and_wrap(element, Some("*"), Some("*")),
