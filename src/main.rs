@@ -201,7 +201,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
     match element.value().name() {
         "a" => Some(translate_link(element)),
         "blockquote" => translate_and_wrap(element, Some("> "), None),
-        "br" => None,
+        "br" => Some("\n".to_string()),
         "div" => translate_container(element),
         "em" => translate_and_wrap(element, Some("*"), Some("*")),
         "hr" => Some("---".to_string()),
@@ -228,12 +228,14 @@ fn translate_text(element: ElementRef) -> Option<String> {
         .children()
         .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
-            if a.ends_with(' ') && b.starts_with(',') {
+            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n')) {
                 a.pop();
             }
             a.reserve(b.len() + 1);
             a.push_str(&b);
-            a.push(' ');
+            if !a.ends_with('\n') {
+                a.push(' ');
+            }
             a
         })
         .trim_end()
@@ -439,12 +441,6 @@ mod tests {
     }
 
     #[test]
-    fn test_span_with_only_br() {
-        let markdown = translate_fragment(r#"<span><br></span>"#, "span");
-        assert_eq!(markdown, None);
-    }
-
-    #[test]
     fn test_strong_with_element_inside() {
         let markdown = translate_fragment(
             r#"<strong><img src="https://www.fake_site.com/fake_image.png"></strong>"#,
@@ -454,12 +450,6 @@ mod tests {
             markdown,
             Some("**![](/assets/images/fake_image.png){: .img-fluid }**".to_string())
         );
-    }
-
-    #[test]
-    fn test_skip_brs() {
-        let markdown = translate_fragment("<br>", "br");
-        assert_eq!(markdown, None);
     }
 
     #[test]
@@ -644,5 +634,12 @@ mod tests {
         let markdown =
             translate_fragment("<ol>\n<li>Item One</li></ol>", "ol");
         assert_eq!(markdown, Some("1. Item One".to_string()));
+    }
+
+    #[test]
+    fn test_paragraph_with_linebreaks() {
+        let markdown =
+            translate_fragment("<p>Some text<br>Some more text</p>", "p");
+        assert_eq!(markdown, Some("Some text\nSome more text".to_string()));
     }
 }
