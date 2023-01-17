@@ -6,7 +6,7 @@ use scraper::{
     Selector,
 };
 use std::path::{Path, PathBuf};
-use std::{fs::File, io::Write};
+use std::{fs::{File, OpenOptions}, io::Write};
 use url::Url;
 
 const DOMAIN: &str = "www.sacdsa.org";
@@ -293,7 +293,7 @@ fn translate_img(element_ref: ElementRef) -> String {
                 return "**There is a base64 image here that I don't support yet**.".to_string();
             }
             let mut filepath =
-                Path::new("/assets/images").join(extract_last_url_segment(&url));
+                Path::new("/assets/images").join(filename_from_url(&url));
             if filepath.as_path().extension().is_none() {
                 filepath.set_extension("png");
             }
@@ -311,9 +311,9 @@ fn url_from_img(element_ref: ElementRef) -> Option<Url> {
     Url::parse(element_ref.value().attr("src").unwrap()).ok()
 }
 
-fn extract_last_url_segment(url: &Url) -> String {
+fn filename_from_url(url: &Url) -> String {
     match url.path_segments() {
-        Some(segments) => segments.last().unwrap().to_string(),
+        Some(segments) => segments.collect::<Vec<&str>>().join("_"),
         None => panic!("Url {} has no path fragments. This shouldn't be a valid path to an image", url),
     }
 }
@@ -323,7 +323,7 @@ async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result
         println!("Skipping base64 image download for now.");
         return Ok(());
     }
-    let mut path = directory.join(extract_last_url_segment(&url));
+    let mut path = directory.join(filename_from_url(&url));
     if path.as_path().extension().is_none() {
         // TODO: I don't know how to determine what extension to give this file. Should I even give one? Need to test whether or not the image will load fine in Jekyll/Markdown
         path.set_extension("png");
@@ -350,7 +350,7 @@ fn create_file_path(url_str: &str) -> PathBuf {
 fn create_file(path: &PathBuf) -> File {
     let prefix = path.parent().unwrap();
     std::fs::create_dir_all(prefix).unwrap();
-    match File::create(path) {
+    match OpenOptions::new().write(true).create_new(true).open(path) {
         Err(why) => panic!("Couldn't create {}: {}", path.display(), why),
         Ok(file) => file,
     }
@@ -593,20 +593,20 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_last_url_fragment_one_fragment() {
+    fn test_filename_from_url_one_fragment() {
         let url = Url::parse("https://www.fake_site.org/one_fragment").unwrap();
-        assert_eq!(extract_last_url_segment(&url), "one_fragment");
+        assert_eq!(filename_from_url(&url), "one_fragment");
     }
 
     #[test]
-    fn test_extract_last_url_fragment_multiple_fragments() {
+    fn test_filename_from_url_two_fragments() {
         let url = Url::parse("https://www.fake_site.org/one_fragment/two_fragment").unwrap();
-        assert_eq!(extract_last_url_segment(&url), "two_fragment");
+        assert_eq!(filename_from_url(&url), "one_fragment_two_fragment");
     }
 
     #[test]
-    fn test_extract_last_url_fragment_file_extension() {
+    fn test_filename_from_url_with_extension() {
         let url = Url::parse("https://www.fake_site.org/one_fragment.png").unwrap();
-        assert_eq!(extract_last_url_segment(&url), "one_fragment.png");
+        assert_eq!(filename_from_url(&url), "one_fragment.png");
     }
 }

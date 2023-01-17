@@ -4,7 +4,6 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 
 ## TODO
 
-* Add a check for if two images have the same download path
 * Increase flexibility
   * Could the selector text be given at runtime?
 * Wayyyyyy better error handling
@@ -16,3 +15,4 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Add support for nested lists
 * Add support for `<table>`s
 * Remove the Sacremento DSA links from the tests
+* Do the images need to be given file extensions to render properly?
