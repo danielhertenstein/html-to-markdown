@@ -15,4 +15,3 @@ Basic script with lots of hardcoded values to scrape an existing blog post on a 
 * Add support for nested lists
 * Add support for `<table>`s
 * Remove the Sacremento DSA links from the tests
-* Do the images need to be given file extensions to render properly?

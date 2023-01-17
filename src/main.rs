@@ -292,11 +292,11 @@ fn translate_img(element_ref: ElementRef) -> String {
             if url.scheme() == "data" {
                 return "**There is a base64 image here that I don't support yet**.".to_string();
             }
-            let mut filepath =
+            let filepath =
                 Path::new("/assets/images").join(filename_from_url(&url));
-            if filepath.as_path().extension().is_none() {
-                filepath.set_extension("png");
-            }
+            // if filepath.as_path().extension().is_none() {
+            //     filepath.set_extension("png");
+            // }
             format!("![]({}){{: .img-fluid }}", filepath.display())
         }
         None => format!(
@@ -327,11 +327,10 @@ async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result
         println!("Skipping base64 image download for now.");
         return Ok(());
     }
-    let mut path = directory.join(filename_from_url(&url));
-    if path.as_path().extension().is_none() {
-        // TODO: I don't know how to determine what extension to give this file. Should I even give one? Need to test whether or not the image will load fine in Jekyll/Markdown
-        path.set_extension("png");
-    }
+    let path = directory.join(filename_from_url(&url));
+    // if path.as_path().extension().is_none() {
+    //     path.set_extension("png");
+    // }
     let mut file = create_file(&path);
     let image_bytes = client.get(url).send().await?.bytes().await?;
     file.write_all(&image_bytes).unwrap();
@@ -468,7 +467,7 @@ mod tests {
             r#"<img src="https://www.fake_site.org/image_src">"#,
             "img",
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src.png){: .img-fluid }".to_string()));
+        assert_eq!(markdown, Some("![](/assets/images/image_src){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -477,7 +476,7 @@ mod tests {
             r#"<img src="https://www.fake_site.org/image_src/another_fragment">"#,
             "img",
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment.png){: .img-fluid }".to_string()));
+        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -486,7 +485,7 @@ mod tests {
             r#"<img src="/image_src/another_fragment">"#,
             "img",
         );
-        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment.png){: .img-fluid }".to_string()));
+        assert_eq!(markdown, Some("![](/assets/images/image_src_another_fragment){: .img-fluid }".to_string()));
     }
 
     #[test]
@@ -518,7 +517,7 @@ mod tests {
         download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client)
             .await
             .unwrap();
-        assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o.png").exists());
+        assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o").exists());
     }
 
     #[test]
