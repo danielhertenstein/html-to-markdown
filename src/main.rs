@@ -114,12 +114,11 @@ async fn translate_site(client: &Client, url: &str) -> Result<()> {
     )
     .unwrap();
 
-    // TODO: Where does the date go?
-    // let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
-    // let date: Vec<ElementRef> = content.select(&date_selector).collect();
-    // assert_eq!(date.len(), 1);
-    // let date = date[0];
-    // println!("Date: {}", replace_html_entities(&date.inner_html()).trim());
+    let date_selector = Selector::parse(r#"p[class="text-light"]"#).unwrap();
+    let date: Vec<ElementRef> = content.select(&date_selector).collect();
+    assert_eq!(date.len(), 1);
+    let date = date[0];
+    writeln!(file, "{}", replace_html_entities(&date.inner_html()).trim()).unwrap();
 
     // Handle the image at the top if there is one
     let featured_image_selector = Selector::parse(r#"img[class="news-featured-image"]"#).unwrap();
@@ -208,7 +207,7 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "strong" => translate_and_wrap(element, Some("**"), Some("**")),
         "sup" => translate_and_wrap(element, Some("<sup>"), Some("</sup>")),
         "table" => Some(element.html()),
-        "u" => translate_and_wrap(element, Some("_"), Some("_")),
+        "u" => translate_and_wrap(element, Some("<u>"), Some("<u>")),
         "ul" => translate_ul(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
     }
@@ -343,10 +342,13 @@ fn replace_html_entities(dirty_str: &str) -> String {
 
 fn create_file_path(url_str: &str) -> PathBuf {
     let url = Url::parse(url_str).unwrap();
-    let url_path = url.path();
-    let no_prefix = url_path.strip_prefix('/').unwrap_or(url_path);
-    let no_suffix = no_prefix.strip_suffix('/').unwrap_or(no_prefix);
-    let path_str = format!("{}.md", no_suffix);
+    let mut url_path = url.path_segments().unwrap();
+    url_path.next();  // This is "blog"
+    let year = url_path.next().unwrap();
+    let month = url_path.next().unwrap();
+    let day = url_path.next().unwrap();
+    let post_name = url_path.next().unwrap();
+    let path_str = format!("blog/{}/{}-{}-{}-{}.md", year, year, month, day, post_name);
     PathBuf::from(&path_str)
 }
 
@@ -376,7 +378,7 @@ mod tests {
         let path = create_file_path("https://www.sacdsa.org/blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward/");
         assert_eq!(
             path.to_str(),
-            Some("blog/2020/07/06/a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward.md")
+            Some("blog/2020/2020-07-06-a-people-of-color-s-history-of-dsa-part-4-DSA-Looks-Inward.md")
         )
     }
 
