@@ -9,12 +9,12 @@ use scraper::{
     Node::{self, Element, Text},
     Selector,
 };
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
 use std::{
+    collections::hash_map::DefaultHasher,
     fs::{File, OpenOptions},
+    hash::{Hash, Hasher},
     io::Write,
+    path::{Path, PathBuf},
 };
 use url::Url;
 
@@ -220,7 +220,12 @@ fn translate_element(element: ElementRef) -> Option<String> {
         "span" => translate_text(element),
         "strong" => translate_and_wrap(element, Some("**"), Some("**")),
         "sup" => translate_and_wrap(element, Some("<sup>"), Some("</sup>")),
-        "table" => Some(element.html()),
+        "table" => translate_table(element),
+        "tbody" => translate_table_body(element),
+        "td" => translate_text(element),
+        "th" => translate_text(element),
+        "thead" => translate_table_header(element),
+        "tr" => translate_table_row(element),
         "u" => translate_and_wrap(element, Some("<u>"), Some("<u>")),
         "ul" => translate_ul(element),
         _ => panic!("Unsupported element type {}", element.value().name()),
@@ -247,8 +252,7 @@ fn translate_text(element: ElementRef) -> Option<String> {
                 a.push(' ');
             }
             a
-        })
-        .to_string();
+        });
     if text.ends_with(' ') {
         text.pop();
     }
@@ -266,7 +270,7 @@ fn translate_link(element_ref: ElementRef) -> String {
         _ => url.as_str(),
     };
     let markdown_text = match translate_text(element_ref) {
-        Some(markdown) => clean_text(&markdown).unwrap_or(markdown_url.to_string()),
+        Some(markdown) => clean_text(&markdown).unwrap_or_else(|| markdown_url.to_string()),
         None => markdown_url.to_string(),
     };
     format!("[{}]({})", markdown_text, markdown_url)
@@ -307,6 +311,59 @@ fn translate_ol(element_ref: ElementRef) -> Option<String> {
         .collect::<Vec<String>>()
         .join("\n");
     (!markdown.is_empty()).then_some(markdown)
+}
+
+fn translate_table(element_ref: ElementRef) -> Option<String> {
+    let markdown = element_ref
+        .children()
+        .filter_map(translate_node)
+        .collect::<Vec<String>>()
+        .join("\n");
+    (!markdown.is_empty()).then_some(markdown)
+}
+
+fn translate_table_body(element_ref: ElementRef) -> Option<String> {
+    let markdown = element_ref
+        .children()
+        .filter_map(translate_node)
+        .collect::<Vec<String>>()
+        .join("\n");
+    (!markdown.is_empty()).then_some(markdown)
+}
+
+// We make the unsafe assumption that the table header has a single row in it.
+fn translate_table_header(element_ref: ElementRef) -> Option<String> {
+    let children_markdown = element_ref
+        .children()
+        .filter_map(translate_node)
+        .collect::<Vec<String>>();
+    assert_eq!(children_markdown.len(), 1);
+    let header_markdown = &children_markdown[0];
+    (!header_markdown.is_empty()).then_some(format!(
+        "{}\n{}",
+        header_markdown,
+        create_table_underscore_row(header_markdown)
+    ))
+}
+
+fn create_table_underscore_row(header_markdown: &str) -> String {
+    dbg!(header_markdown);
+    let markdown = header_markdown
+        .split('|')
+        .filter(|word| !word.is_empty())
+        .map(|_| " --- ")
+        .collect::<Vec<&str>>()
+        .join("|");
+    format!("|{}|", markdown)
+}
+
+fn translate_table_row(element_ref: ElementRef) -> Option<String> {
+    let markdown = element_ref
+        .children()
+        .filter_map(translate_node)
+        .collect::<Vec<String>>()
+        .join(" | ");
+    (!markdown.is_empty()).then_some(format!("| {} |", markdown))
 }
 
 fn translate_img(element_ref: ElementRef) -> String {
@@ -775,5 +832,38 @@ mod tests {
         let text = "image/png;base64...";
         let extension = extract_extension_from_base64(text);
         assert_eq!(extension, "png");
+    }
+
+    #[test]
+    fn test_translate_table_without_header() {
+        let markdown = translate_fragment(
+            r#"<table><tbody><tr><td><span>Cell 0, 0</span></td><td>Cell 0, 1</td></tr><tr><td>Cell 1, 0</td><td>Cell 1, 1</td></tr></tbody></table>"#,
+            "table",
+        );
+        assert_eq!(
+            markdown,
+            Some("| Cell 0, 0 | Cell 0, 1 |\n| Cell 1, 0 | Cell 1, 1 |".to_string())
+        );
+    }
+
+    #[test]
+    fn test_translate_table_with_header() {
+        let markdown = translate_fragment(
+            r#"<table><thead><tr><th>Col 1</th><th>Col 2</th></tr></thead><tbody><tr><td><span>Cell 0, 0</span></td><td>Cell 0, 1</td></tr><tr><td>Cell 1, 0</td><td>Cell 1, 1</td></tr></tbody></table>"#,
+            "table",
+        );
+        assert_eq!(markdown, Some("| Col 1 | Col 2 |\n| --- | --- |\n| Cell 0, 0 | Cell 0, 1 |\n| Cell 1, 0 | Cell 1, 1 |".to_string()));
+    }
+
+    #[test]
+    fn test_create_table_underscore_row_one_col() {
+        let underscore_row = create_table_underscore_row("| col 1 |");
+        assert_eq!(underscore_row, "| --- |");
+    }
+
+    #[test]
+    fn test_create_table_underscore_row_two_cols() {
+        let underscore_row = create_table_underscore_row("| col 1 | col 2 |");
+        assert_eq!(underscore_row, "| --- | --- |");
     }
 }
