@@ -1,10 +1,16 @@
+use base64::{engine::general_purpose, Engine as _};
 use ego_tree::NodeRef;
+use image::ImageFormat;
+use lazy_static::lazy_static;
+use regex::Regex;
 use reqwest::{Client, Result};
 use scraper::{
     ElementRef, Html,
     Node::{self, Element, Text},
     Selector,
 };
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::{
     fs::{File, OpenOptions},
@@ -226,7 +232,12 @@ fn translate_text(element: ElementRef) -> Option<String> {
         .children()
         .filter_map(translate_node)
         .fold(String::new(), |mut a, b| {
-            if a.ends_with(' ') && (b.starts_with(',') || b.starts_with('\n') || b.starts_with(')') || b.starts_with(". ") || b == "  \n")
+            if a.ends_with(' ')
+                && (b.starts_with(',')
+                    || b.starts_with('\n')
+                    || b.starts_with(')')
+                    || b.starts_with(". ")
+                    || b == "  \n")
             {
                 a.pop();
             }
@@ -258,11 +269,7 @@ fn translate_link(element_ref: ElementRef) -> String {
         Some(markdown) => clean_text(&markdown).unwrap_or(markdown_url.to_string()),
         None => markdown_url.to_string(),
     };
-    format!(
-        "[{}]({})",
-        markdown_text,
-        markdown_url
-    )
+    format!("[{}]({})", markdown_text, markdown_url)
 }
 
 fn translate_and_wrap(
@@ -305,13 +312,7 @@ fn translate_ol(element_ref: ElementRef) -> Option<String> {
 fn translate_img(element_ref: ElementRef) -> String {
     match url_from_img(element_ref) {
         Some(url) => {
-            if url.scheme() == "data" {
-                return "**There is a base64 image here that I don't support yet**.".to_string();
-            }
             let filepath = Path::new("/assets/images").join(filename_from_url(&url));
-            // if filepath.as_path().extension().is_none() {
-            //     filepath.set_extension("png");
-            // }
             format!("![]({}){{: .img-fluid }}", filepath.display())
         }
         None => format!(
@@ -331,6 +332,14 @@ fn url_from_img(element_ref: ElementRef) -> Option<Url> {
 }
 
 fn filename_from_url(url: &Url) -> String {
+    if url.scheme() == "data" {
+        let extension = extract_extension_from_base64(url.path());
+        // My best idea for generating a reproducable filename
+        // for a base64 image is hashing its path
+        let mut s = DefaultHasher::new();
+        url.path().hash(&mut s);
+        return format!("{}.{}", s.finish(), extension);
+    }
     match url.path_segments() {
         Some(segments) => segments.collect::<Vec<&str>>().join("_"),
         None => panic!(
@@ -340,18 +349,29 @@ fn filename_from_url(url: &Url) -> String {
     }
 }
 
-async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result<()> {
-    if url.scheme() == "data" {
-        println!("Skipping base64 image download for now.");
-        return Ok(());
+fn extract_extension_from_base64(text: &str) -> String {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^image/(?P<extension>\w+);").unwrap();
     }
+    RE.captures(text).unwrap()["extension"].to_string()
+}
+
+async fn download_image(url: Url, directory: PathBuf, client: &Client) -> Result<()> {
     let path = directory.join(filename_from_url(&url));
-    // if path.as_path().extension().is_none() {
-    //     path.set_extension("png");
-    // }
     let mut file = create_file(&path);
-    let image_bytes = client.get(url).send().await?.bytes().await?;
-    file.write_all(&image_bytes).unwrap();
+    match url.scheme() {
+        "data" => {
+            let uri = url.path().split(',').last().unwrap();
+            let bytes = general_purpose::STANDARD.decode(uri).unwrap();
+            let format = ImageFormat::from_path(&path).unwrap();
+            let image = image::load_from_memory_with_format(&bytes, format).unwrap();
+            image.save(&path).unwrap();
+        }
+        _ => {
+            let image_bytes = client.get(url).send().await?.bytes().await?;
+            file.write_all(&image_bytes).unwrap();
+        }
+    }
     Ok(())
 }
 
@@ -526,7 +546,8 @@ mod tests {
         download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client)
             .await
             .unwrap();
-        assert!(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o").exists());
+        let file = File::open(tmp_dir.path().join("tf2qRXcS4yKnX-Z-vYYbvLuEF-xWCQXM0bK9R-KtfxrQcwjaELbULke0oUbPJMPp9EuuZ6EImm4X5ycTjQcCixAmh2E9gOFZNkcMso9h3BngaNFDuNSBpoSfbXZCLpSAZSmF3j1o")).unwrap();
+        assert!(file.metadata().unwrap().len() > 0);
     }
 
     #[test]
@@ -654,7 +675,10 @@ mod tests {
 
     #[test]
     fn test_paragraph_with_spans_and_linebreaks() {
-        let markdown = translate_fragment("<p><span>Some text</span><span><br></span><span>Some more text</span></p>", "p");
+        let markdown = translate_fragment(
+            "<p><span>Some text</span><span><br></span><span>Some more text</span></p>",
+            "p",
+        );
         assert_eq!(markdown, Some("Some text  \nSome more text".to_string()));
     }
 
@@ -676,7 +700,10 @@ mod tests {
             r#"<p><span>Plain <strong>strong</strong>, plain <strong>strong again</strong>, and plain again.</span></p>"#,
             "p",
         );
-        assert_eq!(markdown, Some("Plain **strong**, plain **strong again**, and plain again.".to_string()));
+        assert_eq!(
+            markdown,
+            Some("Plain **strong**, plain **strong again**, and plain again.".to_string())
+        );
     }
 
     #[test]
@@ -685,7 +712,10 @@ mod tests {
             r#"<a href="https://www.fake_site.org/"><span><span>link text</span></span></a>"#,
             "a",
         );
-        assert_eq!(markdown, Some("[link text](https://www.fake_site.org/)".to_string()));
+        assert_eq!(
+            markdown,
+            Some("[link text](https://www.fake_site.org/)".to_string())
+        );
     }
 
     #[test]
@@ -694,15 +724,56 @@ mod tests {
             r#"<p><span>End of sentence </span><span>. Start of sentence</span></p>"#,
             "p",
         );
-        assert_eq!(markdown, Some("End of sentence. Start of sentence".to_string()));
+        assert_eq!(
+            markdown,
+            Some("End of sentence. Start of sentence".to_string())
+        );
     }
 
     #[test]
     fn test_translate_link_with_no_text() {
-        let markdown = translate_fragment(
-            r#"<a href="https://www.fake_site.org"></a>"#,
-            "a"
+        let markdown = translate_fragment(r#"<a href="https://www.fake_site.org"></a>"#, "a");
+        assert_eq!(
+            markdown,
+            Some("[https://www.fake_site.org/](https://www.fake_site.org/)".to_string())
         );
-        assert_eq!(markdown, Some("[https://www.fake_site.org/](https://www.fake_site.org/)".to_string()));
+    }
+
+    #[test]
+    fn test_translate_base64_img() {
+        let markdown = translate_fragment(&load_base64_test_img(), "img");
+        assert_eq!(
+            markdown,
+            Some("![](/assets/images/10227131599112841002.png){: .img-fluid }".to_string())
+        );
+    }
+
+    fn load_base64_test_img() -> String {
+        let base_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let base_path = PathBuf::from(base_dir);
+        let path = base_path.join("resources/test/test_base64_img.txt");
+        std::fs::read_to_string(path).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_download_base64_image() {
+        let html = Html::parse_fragment(&load_base64_test_img());
+        let selector = Selector::parse("img").unwrap();
+        let element_ref = html.select(&selector).next().unwrap();
+        let url = url_from_img(element_ref);
+        let tmp_dir = TempDir::new("testing_dir").unwrap();
+        let client = Client::new();
+        download_image(url.unwrap(), tmp_dir.path().to_path_buf(), &client)
+            .await
+            .unwrap();
+        let file = File::open(tmp_dir.path().join("10227131599112841002.png")).unwrap();
+        assert!(file.metadata().unwrap().len() > 0);
+    }
+
+    #[test]
+    fn test_matching_base64_extension_regex() {
+        let text = "image/png;base64...";
+        let extension = extract_extension_from_base64(text);
+        assert_eq!(extension, "png");
     }
 }
