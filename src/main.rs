@@ -201,7 +201,6 @@ fn replace_html_entities(dirty_str: &str) -> String {
 }
 
 fn translate_element(element: ElementRef) -> Option<String> {
-    println!("{}", &element.html());
     match element.value().name() {
         "a" => Some(translate_link(element)),
         "blockquote" => translate_and_wrap(element, Some("> "), None),
